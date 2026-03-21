@@ -623,10 +623,10 @@ def build_gltf():
     #   Compact sweeping hook -- arm stays bent, power comes from
     #   torso rotation.  Keyframes bake the skating base pose so the
     #   OneShot overlay keeps the lower body skating.
-    hook_l_times = [0.0, 0.10, 0.22, 0.36, 0.5]
+    hook_l_times = [0.0, 0.18, 0.30, 0.42, 0.58, 0.74, 0.9]
     hl_time_acc = bb.add_accessor(
         bb.add_view(struct.pack(f"<{len(hook_l_times)}f", *hook_l_times)),
-        FLOAT, len(hook_l_times), "SCALAR", [0.0], [0.5],
+        FLOAT, len(hook_l_times), "SCALAR", [0.0], [0.9],
     )
     Y = (0, 1, 0)
     crouch_y = hb[1] + crouch          # crouched hips height
@@ -655,37 +655,39 @@ def build_gltf():
     # the elbows-out skate guard. Starts/ends at skate base values.
     #                          rest     cock     PUNCH    retract  rest
     hl_arm_r_out = pack_quat_keys(combined_xz([
-        (28, 30), (45, 34), (-120, 5), (-55, 16), (28, 30)]))
-    # Forearm: from skating bent (-70) → cocked tighter → extend on impact
-    hl_forearm_r_out = pack_rot([-70, -100, 5, -20, -70], X)
-    # Fist: slight pronate snap on impact
+        (28, 30), (75, 98), (85, 105), (-85, 70), (-90, 63), (-55, 53), (28, 30)]))
+    # Forearm: pulls back, then SNAPS to hyperextend on follow-through
+    hl_forearm_r_out = pack_rot([-70, -120, -130, 5, 10, -15, -70], X)
+    # Fist: pronate hard on impact, stays turned on follow-through
     hl_fist_r_out = pack_quat_keys(combined_xz([
-        (0, 0), (-5, -5), (8, 15), (3, 8), (0, 0)]))
-    # Guard arm (code-left = visual-right): holds skate pose
+        (0, 0), (-8, -8), (-12, -12), (12, 25), (15, 30), (6, 15), (0, 0)]))
+    # Guard arm: subtle brace — tightens on windup, recoils on impact
     hl_arm_l_out = pack_quat_keys(combined_xz([
-        (-35, -30), (-35, -30), (-35, -30), (-35, -30), (-35, -30)]))
-    hl_forearm_l_out = pack_rot([-65, -65, -65, -65, -65], X)
-    hl_fist_l_out = pack_rot([0, 0, 0, 0, 0], X)
-    # Spine: maintains skating lean (X=25), slight Y twist into jab
+        (-35, -30), (-40, -38), (-42, -40), (-38, -34), (-34, -28), (-35, -30), (-35, -30)]))
+    hl_forearm_l_out = pack_rot([-65, -90, -95, -87, -75, -78, -65], X)
+    hl_fist_l_out = pack_rot([0, -3, -5, -3, 2, 0, 0], X)
+    # Spine: coils back on windup, drives forward through impact + follow-through
     hl_spine_out = pack_quat_keys(combined_xy([
-        (25, 0), (27, -5), (22, 15), (24, 8), (25, 0)]))
-    # Head: holds skating counter-tilt, small dip on impact
-    hl_head_out = pack_rot([-18, -20, -24, -20, -18], X)
-    # Hips: stays at skating crouch, tiny drop on impact
+        (25, 0), (28, 20), (30, 25), (20, -35), (18, -40), (22, -20), (25, 0)]))
+    # Head: dips on windup, snaps forward on impact
+    hl_head_out = pack_rot([-18, -22, -25, -30, -32, -24, -18], X)
+    # Hips: drops on windup, lunges on impact, overdone forward lean
     hl_hips_out = pack_vec3([
         (hb[0], crouch_y,        hb[2]),
-        (hb[0], crouch_y,        hb[2]),
         (hb[0], crouch_y - 0.02, hb[2]),
-        (hb[0], crouch_y - 0.01, hb[2]),
+        (hb[0], crouch_y - 0.04, hb[2]),
+        (hb[0], crouch_y - 0.06, hb[2]),
+        (hb[0], crouch_y - 0.08, hb[2]),
+        (hb[0], crouch_y - 0.04, hb[2]),
         (hb[0], crouch_y,        hb[2]),
     ])
-    # Legs: hold skating pose — jabs don't shift weight
-    hl_leg_l_out   = pack_rot([15, 15, 15, 15, 15], X)
-    hl_leg_r_out   = pack_rot([-45, -45, -45, -45, -45], X)
-    hl_shin_l_out  = pack_rot([30, 30, 30, 30, 30], X)
-    hl_shin_r_out  = pack_rot([75, 75, 75, 75, 75], X)
-    hl_foot_l_out  = pack_rot([0, 0, 0, 0, 0], X)
-    hl_foot_r_out  = pack_rot([0, 0, 0, 0, 0], X)
+    # Legs: hold skating pose
+    hl_leg_l_out   = pack_rot([15, 15, 15, 15, 15, 15, 15], X)
+    hl_leg_r_out   = pack_rot([-45, -45, -45, -45, -45, -45, -45], X)
+    hl_shin_l_out  = pack_rot([30, 30, 30, 30, 30, 30, 30], X)
+    hl_shin_r_out  = pack_rot([75, 75, 75, 75, 75, 75, 75], X)
+    hl_foot_l_out  = pack_rot([0, 0, 0, 0, 0, 0, 0], X)
+    hl_foot_r_out  = pack_rot([0, 0, 0, 0, 0, 0, 0], X)
 
     hook_l_channels = [
         ("ArmL",     "rotation",    hl_arm_l_out),
@@ -706,45 +708,46 @@ def build_gltf():
     ]
 
     # ── JabR animation (right jab, 0.5s) ── mirror of HookL ─────
-    hook_r_times = [0.0, 0.10, 0.22, 0.36, 0.5]
+    hook_r_times = [0.0, 0.18, 0.30, 0.42, 0.58, 0.74, 0.9]
     hr_time_acc = bb.add_accessor(
         bb.add_view(struct.pack(f"<{len(hook_r_times)}f", *hook_r_times)),
-        FLOAT, len(hook_r_times), "SCALAR", [0.0], [0.5],
+        FLOAT, len(hook_r_times), "SCALAR", [0.0], [0.9],
     )
     # Jabbing arm (code-left = visual-right due to PI flip):
     # Quick straight jab FROM the skating crouch. Mirror of JabL.
     #                          rest      cock      PUNCH     retract   rest
+    # Punch arm (code-L): mirror of JabL punch — same X, negated Z
     hr_arm_l_out = pack_quat_keys(combined_xz([
-        (-35, -30), (-20, -34), (-120, -5), (-60, -16), (-35, -30)]))
-    # Forearm: from skating bent (-65) → cocked tighter → extend on impact
-    hr_forearm_l_out = pack_rot([-65, -100, 5, -20, -65], X)
-    # Fist: slight pronate snap on impact
+        (28, -30), (75, -98), (85, -105), (-85, -70), (-90, -63), (-55, -53), (28, -30)]))
+    hr_forearm_l_out = pack_rot([-70, -120, -130, 5, 10, -15, -70], X)
     hr_fist_l_out = pack_quat_keys(combined_xz([
-        (0, 0), (5, 5), (-8, -15), (-3, -8), (0, 0)]))
-    # Guard arm (code-right = visual-left): holds skate pose
+        (0, 0), (-8, 8), (-12, 12), (12, -25), (15, -30), (6, -15), (0, 0)]))
+    # Guard arm (code-R): mirror of JabL guard — same X, negated Z
     hr_arm_r_out = pack_quat_keys(combined_xz([
-        (28, 30), (28, 30), (28, 30), (28, 30), (28, 30)]))
-    hr_forearm_r_out = pack_rot([-70, -70, -70, -70, -70], X)
-    hr_fist_r_out = pack_rot([0, 0, 0, 0, 0], X)
-    # Spine: maintains skating lean (X=25), slight Y twist into jab (opposite)
+        (-35, 30), (-40, 38), (-42, 40), (-38, 34), (-34, 28), (-35, 30), (-35, 30)]))
+    hr_forearm_r_out = pack_rot([-65, -90, -95, -87, -75, -78, -65], X)
+    hr_fist_r_out = pack_rot([0, 3, 5, 3, -2, 0, 0], X)
+    # Spine: mirrored Y twist
     hr_spine_out = pack_quat_keys(combined_xy([
-        (25, 0), (27, 5), (22, -15), (24, -8), (25, 0)]))
-    hr_head_out = pack_rot([-18, -20, -24, -20, -18], X)
-    # Hips: stays at skating crouch, tiny drop on impact
+        (25, 0), (28, -20), (30, -25), (20, 35), (18, 40), (22, 20), (25, 0)]))
+    hr_head_out = pack_rot([-18, -22, -25, -30, -32, -24, -18], X)
+    # Hips: drops on windup, lunges on impact
     hr_hips_out = pack_vec3([
         (hb[0], crouch_y,        hb[2]),
-        (hb[0], crouch_y,        hb[2]),
         (hb[0], crouch_y - 0.02, hb[2]),
-        (hb[0], crouch_y - 0.01, hb[2]),
+        (hb[0], crouch_y - 0.04, hb[2]),
+        (hb[0], crouch_y - 0.06, hb[2]),
+        (hb[0], crouch_y - 0.08, hb[2]),
+        (hb[0], crouch_y - 0.04, hb[2]),
         (hb[0], crouch_y,        hb[2]),
     ])
-    # Legs: hold skating pose — jabs don't shift weight
-    hr_leg_l_out   = pack_rot([15, 15, 15, 15, 15], X)
-    hr_leg_r_out   = pack_rot([-45, -45, -45, -45, -45], X)
-    hr_shin_l_out  = pack_rot([30, 30, 30, 30, 30], X)
-    hr_shin_r_out  = pack_rot([75, 75, 75, 75, 75], X)
-    hr_foot_l_out  = pack_rot([0, 0, 0, 0, 0], X)
-    hr_foot_r_out  = pack_rot([0, 0, 0, 0, 0], X)
+    # Legs: hold skating pose
+    hr_leg_l_out   = pack_rot([15, 15, 15, 15, 15, 15, 15], X)
+    hr_leg_r_out   = pack_rot([-45, -45, -45, -45, -45, -45, -45], X)
+    hr_shin_l_out  = pack_rot([30, 30, 30, 30, 30, 30, 30], X)
+    hr_shin_r_out  = pack_rot([75, 75, 75, 75, 75, 75, 75], X)
+    hr_foot_l_out  = pack_rot([0, 0, 0, 0, 0, 0, 0], X)
+    hr_foot_r_out  = pack_rot([0, 0, 0, 0, 0, 0, 0], X)
 
     hook_r_channels = [
         ("ArmR",     "rotation",    hr_arm_r_out),
@@ -869,39 +872,41 @@ def build_gltf():
     ]
 
     # ── JabLB (left jab from mirrored skate, 0.5s) ───────────────
-    jlb_times = [0.0, 0.10, 0.22, 0.36, 0.5]
+    jlb_times = [0.0, 0.18, 0.30, 0.42, 0.58, 0.74, 0.9]
     jlb_time_acc = bb.add_accessor(
         bb.add_view(struct.pack(f"<{len(jlb_times)}f", *jlb_times)),
-        FLOAT, len(jlb_times), "SCALAR", [0.0], [0.5],
+        FLOAT, len(jlb_times), "SCALAR", [0.0], [0.9],
     )
     # Same punch arm motion as JabL
     jlb_arm_r_out = pack_quat_keys(combined_xz([
-        (28, 30), (45, 34), (-120, 5), (-55, 16), (28, 30)]))
-    jlb_forearm_r_out = pack_rot([-70, -100, 5, -20, -70], X)
+        (28, 30), (75, 98), (85, 105), (-85, 70), (-90, 63), (-55, 53), (28, 30)]))
+    jlb_forearm_r_out = pack_rot([-70, -120, -130, 5, 10, -15, -70], X)
     jlb_fist_r_out = pack_quat_keys(combined_xz([
-        (0, 0), (-5, -5), (8, 15), (3, 8), (0, 0)]))
-    # Guard arm holds mirrored skate pose
+        (0, 0), (-8, -8), (-12, -12), (12, 25), (15, 30), (6, 15), (0, 0)]))
+    # Guard arm: subtle brace — tightens on windup, recoils on impact
     jlb_arm_l_out = pack_quat_keys(combined_xz([
-        (28, -30), (28, -30), (28, -30), (28, -30), (28, -30)]))
-    jlb_forearm_l_out = pack_rot([-70, -70, -70, -70, -70], X)
-    jlb_fist_l_out = pack_rot([0, 0, 0, 0, 0], X)
+        (28, -30), (33, -38), (35, -40), (31, -34), (26, -28), (28, -30), (28, -30)]))
+    jlb_forearm_l_out = pack_rot([-70, -95, -100, -92, -80, -83, -70], X)
+    jlb_fist_l_out = pack_rot([0, -3, -5, -3, 2, 0, 0], X)
     jlb_spine_out = pack_quat_keys(combined_xy([
-        (25, 0), (27, -5), (22, 15), (24, 8), (25, 0)]))
-    jlb_head_out = pack_rot([-18, -20, -24, -20, -18], X)
+        (25, 0), (28, 20), (30, 25), (20, -35), (18, -40), (22, -20), (25, 0)]))
+    jlb_head_out = pack_rot([-18, -22, -25, -30, -32, -24, -18], X)
     jlb_hips_out = pack_vec3([
         (hb[0], crouch_y,        hb[2]),
-        (hb[0], crouch_y,        hb[2]),
         (hb[0], crouch_y - 0.02, hb[2]),
-        (hb[0], crouch_y - 0.01, hb[2]),
+        (hb[0], crouch_y - 0.04, hb[2]),
+        (hb[0], crouch_y - 0.06, hb[2]),
+        (hb[0], crouch_y - 0.08, hb[2]),
+        (hb[0], crouch_y - 0.04, hb[2]),
         (hb[0], crouch_y,        hb[2]),
     ])
     # Legs: hold mirrored skate pose
-    jlb_leg_l_out   = pack_rot([-55, -55, -55, -55, -55], X)
-    jlb_leg_r_out   = pack_rot([15, 15, 15, 15, 15], X)
-    jlb_shin_l_out  = pack_rot([75, 75, 75, 75, 75], X)
-    jlb_shin_r_out  = pack_rot([30, 30, 30, 30, 30], X)
-    jlb_foot_l_out  = pack_rot([0, 0, 0, 0, 0], X)
-    jlb_foot_r_out  = pack_rot([0, 0, 0, 0, 0], X)
+    jlb_leg_l_out   = pack_rot([-55, -55, -55, -55, -55, -55, -55], X)
+    jlb_leg_r_out   = pack_rot([15, 15, 15, 15, 15, 15, 15], X)
+    jlb_shin_l_out  = pack_rot([75, 75, 75, 75, 75, 75, 75], X)
+    jlb_shin_r_out  = pack_rot([30, 30, 30, 30, 30, 30, 30], X)
+    jlb_foot_l_out  = pack_rot([0, 0, 0, 0, 0, 0, 0], X)
+    jlb_foot_r_out  = pack_rot([0, 0, 0, 0, 0, 0, 0], X)
 
     jablb_channels = [
         ("ArmL",     "rotation",    jlb_arm_l_out),
@@ -924,33 +929,37 @@ def build_gltf():
     # ── JabRB (right jab from mirrored skate, 0.5s) ──────────────
     jrb_time_acc = jlb_time_acc  # same timing
     # Same punch arm motion as JabR
+    # Punch arm (code-L): mirror of JabLB punch — same X, negated Z
     jrb_arm_l_out = pack_quat_keys(combined_xz([
-        (-35, -30), (-20, -34), (-120, -5), (-60, -16), (-35, -30)]))
-    jrb_forearm_l_out = pack_rot([-65, -100, 5, -20, -65], X)
+        (28, -30), (75, -98), (85, -105), (-85, -70), (-90, -63), (-55, -53), (28, -30)]))
+    jrb_forearm_l_out = pack_rot([-70, -120, -130, 5, 10, -15, -70], X)
     jrb_fist_l_out = pack_quat_keys(combined_xz([
-        (0, 0), (5, 5), (-8, -15), (-3, -8), (0, 0)]))
-    # Guard arm holds mirrored skate pose
+        (0, 0), (-8, 8), (-12, 12), (12, -25), (15, -30), (6, -15), (0, 0)]))
+    # Guard arm (code-R): mirror of JabLB guard — same X, negated Z
     jrb_arm_r_out = pack_quat_keys(combined_xz([
-        (-35, 30), (-35, 30), (-35, 30), (-35, 30), (-35, 30)]))
-    jrb_forearm_r_out = pack_rot([-65, -65, -65, -65, -65], X)
-    jrb_fist_r_out = pack_rot([0, 0, 0, 0, 0], X)
+        (28, 30), (33, 38), (35, 40), (31, 34), (26, 28), (28, 30), (28, 30)]))
+    jrb_forearm_r_out = pack_rot([-70, -95, -100, -92, -80, -83, -70], X)
+    jrb_fist_r_out = pack_rot([0, 3, 5, 3, -2, 0, 0], X)
+    # Spine: mirrored Y twist
     jrb_spine_out = pack_quat_keys(combined_xy([
-        (25, 0), (27, 5), (22, -15), (24, -8), (25, 0)]))
-    jrb_head_out = pack_rot([-18, -20, -24, -20, -18], X)
+        (25, 0), (28, -20), (30, -25), (20, 35), (18, 40), (22, 20), (25, 0)]))
+    jrb_head_out = pack_rot([-18, -22, -25, -30, -32, -24, -18], X)
     jrb_hips_out = pack_vec3([
         (hb[0], crouch_y,        hb[2]),
-        (hb[0], crouch_y,        hb[2]),
         (hb[0], crouch_y - 0.02, hb[2]),
-        (hb[0], crouch_y - 0.01, hb[2]),
+        (hb[0], crouch_y - 0.04, hb[2]),
+        (hb[0], crouch_y - 0.06, hb[2]),
+        (hb[0], crouch_y - 0.08, hb[2]),
+        (hb[0], crouch_y - 0.04, hb[2]),
         (hb[0], crouch_y,        hb[2]),
     ])
     # Legs: hold mirrored skate pose
-    jrb_leg_l_out   = pack_rot([-55, -55, -55, -55, -55], X)
-    jrb_leg_r_out   = pack_rot([15, 15, 15, 15, 15], X)
-    jrb_shin_l_out  = pack_rot([75, 75, 75, 75, 75], X)
-    jrb_shin_r_out  = pack_rot([30, 30, 30, 30, 30], X)
-    jrb_foot_l_out  = pack_rot([0, 0, 0, 0, 0], X)
-    jrb_foot_r_out  = pack_rot([0, 0, 0, 0, 0], X)
+    jrb_leg_l_out   = pack_rot([-55, -55, -55, -55, -55, -55, -55], X)
+    jrb_leg_r_out   = pack_rot([15, 15, 15, 15, 15, 15, 15], X)
+    jrb_shin_l_out  = pack_rot([75, 75, 75, 75, 75, 75, 75], X)
+    jrb_shin_r_out  = pack_rot([30, 30, 30, 30, 30, 30, 30], X)
+    jrb_foot_l_out  = pack_rot([0, 0, 0, 0, 0, 0, 0], X)
+    jrb_foot_r_out  = pack_rot([0, 0, 0, 0, 0, 0, 0], X)
 
     jabrb_channels = [
         ("ArmR",     "rotation",    jrb_arm_r_out),
