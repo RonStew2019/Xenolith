@@ -24,10 +24,10 @@ BONES = {
     "ShinL":     ("LegL",    (0, -0.39, 0),     (-0.12, 0.39, 0)),
     "LegR":      ("Hips",    (0.12, -0.07, 0),  (0.12, 0.78, 0)),
     "ShinR":     ("LegR",    (0, -0.39, 0),     (0.12, 0.39, 0)),
-    "FootL":     ("ShinL",   (0, -0.33, 0),     (-0.12, 0.06, 0)),
-    "FootR":     ("ShinR",   (0, -0.33, 0),     (0.12, 0.06, 0)),
-    "FistL":     ("ForearmL", (0, -0.30, 0),     (-0.30, 0.60, 0)),
-    "FistR":     ("ForearmR", (0, -0.30, 0),     (0.30, 0.60, 0)),
+    "FootL":     ("ShinL",   (0, -0.48, 0),     (-0.12, -0.09, 0)),
+    "FootR":     ("ShinR",   (0, -0.48, 0),     (0.12, -0.09, 0)),
+    "FistL":     ("ForearmL", (0, -0.35, 0),     (-0.30, 0.55, 0)),
+    "FistR":     ("ForearmR", (0, -0.35, 0),     (0.30, 0.55, 0)),
 }
 BONE_ORDER = [
     "Hips", "Spine", "Head",
@@ -50,31 +50,31 @@ BODY_PARTS = [
     # ── Head ──
     ("ellipsoid", (0, 1.55, 0),       (0.12, 0.12, 0.12), "Head"),
     # ── Left arm: shoulder ball -> socketed upper arm -> elbow ball -> socketed forearm ──
-    ("ellipsoid", (-0.30, 1.21, 0),   (0.070, 0.070, 0.070), "ArmL"),
+    ("ellipsoid", (-0.30, 1.24, 0),   (0.070, 0.070, 0.070), "ArmL"),
     ("socketed",  (-0.30, 1.05, 0),   (0.070, 0.108),        "ArmL"),
-    ("ellipsoid", (-0.30, 0.90, 0),   (0.055, 0.055, 0.055), "ForearmL"),
+    ("ellipsoid", (-0.30, 0.895, 0),  (0.055, 0.055, 0.055), "ForearmL"),
     ("socketed",  (-0.30, 0.74, 0),   (0.062, 0.108),        "ForearmL"),
     # ── Right arm ──
-    ("ellipsoid", (0.30, 1.21, 0),    (0.070, 0.070, 0.070), "ArmR"),
+    ("ellipsoid", (0.30, 1.24, 0),    (0.070, 0.070, 0.070), "ArmR"),
     ("socketed",  (0.30, 1.05, 0),    (0.070, 0.108),        "ArmR"),
-    ("ellipsoid", (0.30, 0.90, 0),    (0.055, 0.055, 0.055), "ForearmR"),
+    ("ellipsoid", (0.30, 0.895, 0),   (0.055, 0.055, 0.055), "ForearmR"),
     ("socketed",  (0.30, 0.74, 0),    (0.062, 0.108),        "ForearmR"),
     # ── Left leg: hip ball -> socketed thigh -> knee ball -> socketed shin ──
-    ("ellipsoid", (-0.12, 0.78, 0),   (0.069, 0.069, 0.069), "LegL"),
+    ("ellipsoid", (-0.12, 0.79, 0),   (0.069, 0.069, 0.069), "LegL"),
     ("socketed",  (-0.12, 0.58, 0),   (0.092, 0.13),         "LegL"),
-    ("ellipsoid", (-0.12, 0.39, 0),   (0.058, 0.058, 0.058), "ShinL"),
+    ("ellipsoid", (-0.12, 0.385, 0),  (0.058, 0.058, 0.058), "ShinL"),
     ("socketed",  (-0.12, 0.18, 0),   (0.081, 0.14),         "ShinL"),
     # ── Right leg ──
-    ("ellipsoid", (0.12, 0.78, 0),    (0.069, 0.069, 0.069), "LegR"),
+    ("ellipsoid", (0.12, 0.79, 0),    (0.069, 0.069, 0.069), "LegR"),
     ("socketed",  (0.12, 0.58, 0),    (0.092, 0.13),         "LegR"),
-    ("ellipsoid", (0.12, 0.39, 0),    (0.058, 0.058, 0.058), "ShinR"),
+    ("ellipsoid", (0.12, 0.385, 0),   (0.058, 0.058, 0.058), "ShinR"),
     ("socketed",  (0.12, 0.18, 0),    (0.081, 0.14),         "ShinR"),
     # ── Feet (ball joints at shin bottoms — skating wheels) ──
-    ("ellipsoid", (-0.12, 0.06, 0),    (0.09, 0.09, 0.09),  "FootL"),
-    ("ellipsoid", (0.12, 0.06, 0),     (0.09, 0.09, 0.09),  "FootR"),
+    ("ellipsoid", (-0.12, -0.09, 0),   (0.09, 0.09, 0.09),  "FootL"),
+    ("ellipsoid", (0.12, -0.09, 0),    (0.09, 0.09, 0.09),  "FootR"),
     # ── Fists (chunky brawler mitts) ──
-    ("rounded_box", (-0.30, 0.60, 0),  (0.06, 0.05, 0.07), "FistL"),
-    ("rounded_box", (0.30, 0.60, 0),   (0.06, 0.05, 0.07), "FistR"),
+    ("rounded_box", (-0.30, 0.55, 0),  (0.06, 0.05, 0.07), "FistL"),
+    ("rounded_box", (0.30, 0.55, 0),   (0.06, 0.05, 0.07), "FistR"),
 ]
 
 # Face definitions: (normal, 4 corner signs)
@@ -644,6 +644,15 @@ def build_gltf():
                          quat_from_axis_angle(X, math.radians(x)))
                 for x, z in pairs]
 
+    def combined_xyz(triples):
+        """Build combined X + Y + Z rotation quaternions from (x_deg, y_deg, z_deg) triples.
+        Composition order: Z * Y * X (X applied first, then Y, then Z).
+        The Y component tilts the arm's swing plane for elevation control."""
+        return [quat_mul(quat_from_axis_angle(Z, math.radians(z)),
+                         quat_mul(quat_from_axis_angle(Y, math.radians(y)),
+                                  quat_from_axis_angle(X, math.radians(x))))
+                for x, y, z in triples]
+
     def combined_xy(pairs):
         """Build combined X + Y rotation quaternions from (x_deg, y_deg) pairs."""
         return [quat_mul(quat_from_axis_angle(Y, math.radians(y)),
@@ -654,8 +663,8 @@ def build_gltf():
     # Quick straight jab FROM the skating crouch. Arm punches out from
     # the elbows-out skate guard. Starts/ends at skate base values.
     #                          rest     cock     PUNCH    retract  rest
-    hl_arm_r_out = pack_quat_keys(combined_xz([
-        (28, 30), (75, 98), (85, 105), (-85, 70), (-90, 63), (-55, 53), (28, 30)]))
+    hl_arm_r_out = pack_quat_keys(combined_xyz([
+        (28, 0, 30), (75, 8, 98), (85, 18, 105), (-85, 42, 70), (-90, 38, 63), (-55, 18, 53), (28, 0, 30)]))
     # Forearm: pulls back, then SNAPS to hyperextend on follow-through
     hl_forearm_r_out = pack_rot([-70, -120, -130, 5, 10, -15, -70], X)
     # Fist: pronate hard on impact, stays turned on follow-through
@@ -717,8 +726,8 @@ def build_gltf():
     # Quick straight jab FROM the skating crouch. Mirror of JabL.
     #                          rest      cock      PUNCH     retract   rest
     # Punch arm (code-L): mirror of JabL punch — same X, negated Z
-    hr_arm_l_out = pack_quat_keys(combined_xz([
-        (28, -30), (75, -98), (85, -105), (-85, -70), (-90, -63), (-55, -53), (28, -30)]))
+    hr_arm_l_out = pack_quat_keys(combined_xyz([
+        (28, 0, -30), (75, -8, -98), (85, -18, -105), (-85, -42, -70), (-90, -38, -63), (-55, -18, -53), (28, 0, -30)]))
     hr_forearm_l_out = pack_rot([-70, -120, -130, 5, 10, -15, -70], X)
     hr_fist_l_out = pack_quat_keys(combined_xz([
         (0, 0), (-8, 8), (-12, 12), (12, -25), (15, -30), (6, -15), (0, 0)]))
@@ -878,8 +887,8 @@ def build_gltf():
         FLOAT, len(jlb_times), "SCALAR", [0.0], [0.9],
     )
     # Same punch arm motion as JabL
-    jlb_arm_r_out = pack_quat_keys(combined_xz([
-        (28, 30), (75, 98), (85, 105), (-85, 70), (-90, 63), (-55, 53), (28, 30)]))
+    jlb_arm_r_out = pack_quat_keys(combined_xyz([
+        (28, 0, 30), (75, 8, 98), (85, 18, 105), (-85, 42, 70), (-90, 38, 63), (-55, 18, 53), (28, 0, 30)]))
     jlb_forearm_r_out = pack_rot([-70, -120, -130, 5, 10, -15, -70], X)
     jlb_fist_r_out = pack_quat_keys(combined_xz([
         (0, 0), (-8, -8), (-12, -12), (12, 25), (15, 30), (6, 15), (0, 0)]))
@@ -930,8 +939,8 @@ def build_gltf():
     jrb_time_acc = jlb_time_acc  # same timing
     # Same punch arm motion as JabR
     # Punch arm (code-L): mirror of JabLB punch — same X, negated Z
-    jrb_arm_l_out = pack_quat_keys(combined_xz([
-        (28, -30), (75, -98), (85, -105), (-85, -70), (-90, -63), (-55, -53), (28, -30)]))
+    jrb_arm_l_out = pack_quat_keys(combined_xyz([
+        (28, 0, -30), (75, -8, -98), (85, -18, -105), (-85, -42, -70), (-90, -38, -63), (-55, -18, -53), (28, 0, -30)]))
     jrb_forearm_l_out = pack_rot([-70, -120, -130, 5, 10, -15, -70], X)
     jrb_fist_l_out = pack_quat_keys(combined_xz([
         (0, 0), (-8, 8), (-12, 12), (12, -25), (15, -30), (6, -15), (0, 0)]))
