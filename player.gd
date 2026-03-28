@@ -1,104 +1,89 @@
-extends CharacterBody3D
-## Third-person controller with animation blending.
+extends CharacterBase
+## Third-person player controller with attack animations.
 ## WASD + Space for movement, LMB = left hook, RMB = right cross.
 ## Attacks overlay the upper body via OneShot nodes while the skate
 ## animation keeps running on the lower body.
 
-@export var speed: float = 5.0
 @export var jump_velocity: float = 4.5
-@export var rotation_speed: float = 10.0
 @export var mouse_sensitivity: float = 0.002
 @export var pitch_min_deg: float = -60.0
 @export var pitch_max_deg: float = 40.0
+@export var punch_apex_delay: float = 0.30  ## Seconds into swing before hit-check (matches animation apex)
 
 @onready var _camera_pivot: Node3D = $CameraPivot
 
-var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
-var _stride_timer: float = 0.0
-var _stride_b: bool = false
-var _character: Node3D
-var _anim_tree: AnimationTree
+var _reactor: Node
+var _loadout: Loadout
+var _hud_layer: CanvasLayer
+var _interaction_prompt: InteractionPrompt
+
+## Maps raw keycodes to loadout action strings for ability activation.
+## Extend this dictionary to bind more ability slots.
+var _ability_keys: Dictionary = {
+	KEY_1: "ability_1",
+	KEY_2: "ability_2",
+}
 
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	_setup_character()
+	super._ready()
+	_setup_reactor()
+	_setup_loadout()
 
 
-# ── Character & Animation Setup ──────────────────────────────────────────
+func _setup_reactor() -> void:
+	_reactor = ReactorCore.new()
+	_reactor.name = "ReactorCore"
+	add_child(_reactor)
+	_reactor.reactor_breached.connect(die)
+	_bind_reactor_glow(_reactor)
 
-func _setup_character() -> void:
-	# Instance the generated character model
-	var char_scene := load("res://character.gltf") as PackedScene
-	if not char_scene:
-		push_error("Player: failed to load res://character.gltf")
-		return
-	_character = char_scene.instantiate()
-	_character.rotation.y = PI  # glTF faces +Z, Godot forward is -Z
-	add_child(_character)
+	_hud_layer = CanvasLayer.new()
+	_hud_layer.name = "HUDLayer"
+	add_child(_hud_layer)
 
-	# Find the AnimationPlayer baked into the imported glTF scene
-	var anim_player := _find_child_by_class(_character, &"AnimationPlayer") as AnimationPlayer
-	if not anim_player:
-		push_warning("Player: no AnimationPlayer found in character model")
-		return
+	var hud := ReactorHUD.new()
+	hud.name = "ReactorHUD"
+	_hud_layer.add_child(hud)
+	hud.bind_reactor(_reactor)
 
-	# Map short names → full names (handles library prefixes like "lib/Skate")
-	var anim_names: Dictionary = {}
-	for full_name in anim_player.get_animation_list():
-		anim_names[full_name.get_file()] = StringName(full_name)
+	_interaction_prompt = InteractionPrompt.new()
+	_hud_layer.add_child(_interaction_prompt)
 
-	# Skate loops, attacks play once
-	_set_loop_mode(anim_player, anim_names.get("Idle", ""), Animation.LOOP_LINEAR)
-	_set_loop_mode(anim_player, anim_names.get("Skate", ""), Animation.LOOP_LINEAR)
-	_set_loop_mode(anim_player, anim_names.get("SkateB", ""), Animation.LOOP_LINEAR)
-	_set_loop_mode(anim_player, anim_names.get("JabLB", ""), Animation.LOOP_NONE)
-	_set_loop_mode(anim_player, anim_names.get("JabRB", ""), Animation.LOOP_NONE)
-	_set_loop_mode(anim_player, anim_names.get("JabL", ""), Animation.LOOP_NONE)
-	_set_loop_mode(anim_player, anim_names.get("JabR", ""), Animation.LOOP_NONE)
 
-	# ── Build the AnimationTree in code (robust against import path changes) ──
-	_anim_tree = AnimationTree.new()
-	_character.add_child(_anim_tree)
-	_anim_tree.anim_player = _anim_tree.get_path_to(anim_player)
+func _setup_loadout() -> void:
+	_loadout = Loadout.new()
+	_loadout.add_ability(EnvenomAbility.new("ability_1"))
+	_loadout.add_ability(TunnelAbility.new("ability_2"))
 
-	var tree := AnimationNodeBlendTree.new()
+	var bar := AbilityBar.new()
+	bar.bind(_loadout, { "ability_1": "1", "ability_2": "2" })
+	_hud_layer.add_child(bar)
 
-	# Idle animation
-	var idle_node := AnimationNodeAnimation.new()
-	idle_node.animation = anim_names.get("Idle", &"Idle")
-	tree.add_node(&"idle", idle_node)
 
-	# Skate A (original stance)
-	var skate_a := AnimationNodeAnimation.new()
-	skate_a.animation = anim_names.get("Skate", &"Skate")
-	tree.add_node(&"skate_a", skate_a)
+# -- Animation Extensions --------------------------------------------------
 
-	# Skate B (mirrored stance)
-	var skate_b := AnimationNodeAnimation.new()
-	skate_b.animation = anim_names.get("SkateB", &"SkateB")
-	tree.add_node(&"skate_b", skate_b)
+func _configure_animation_loops(anim_player: AnimationPlayer) -> void:
+	_set_loop_mode(anim_player, _anim_names.get("JabLB", ""), Animation.LOOP_NONE)
+	_set_loop_mode(anim_player, _anim_names.get("JabRB", ""), Animation.LOOP_NONE)
+	_set_loop_mode(anim_player, _anim_names.get("JabL", ""), Animation.LOOP_NONE)
+	_set_loop_mode(anim_player, _anim_names.get("JabR", ""), Animation.LOOP_NONE)
 
-	# Blend between Skate A and B (toggled by stride timer)
-	var stride_blend := AnimationNodeBlend2.new()
-	tree.add_node(&"skate_blend", stride_blend)
-	tree.connect_node(&"skate_blend", 0, &"skate_a")
-	tree.connect_node(&"skate_blend", 1, &"skate_b")
 
-	# Blend between idle and skating
-	var blend := AnimationNodeBlend2.new()
-	tree.add_node(&"skate", blend)
-	tree.connect_node(&"skate", 0, &"idle")
-	tree.connect_node(&"skate", 1, &"skate_blend")
-
-	
-	# JabL uses a Blend2 to pick the correct variant for current stance
+func _extend_anim_tree(
+	tree: AnimationNodeBlendTree,
+	anim_player: AnimationPlayer,
+	base_output: StringName,
+) -> StringName:
 	var jab_l_a := AnimationNodeAnimation.new()
-	jab_l_a.animation = anim_names.get("JabL", &"JabL")
+	jab_l_a.animation = _anim_names.get("JabL", &"JabL")
 	tree.add_node(&"jab_l_a", jab_l_a)
+
 	var jab_l_b := AnimationNodeAnimation.new()
-	jab_l_b.animation = anim_names.get("JabLB", &"JabLB")
+	jab_l_b.animation = _anim_names.get("JabLB", &"JabLB")
 	tree.add_node(&"jab_l_b", jab_l_b)
+
 	var jab_l_blend := AnimationNodeBlend2.new()
 	tree.add_node(&"hook_l", jab_l_blend)
 	tree.connect_node(&"hook_l", 0, &"jab_l_a")
@@ -107,19 +92,19 @@ func _setup_character() -> void:
 	var oneshot_l := AnimationNodeOneShot.new()
 	oneshot_l.fadein_time = 0.05
 	oneshot_l.fadeout_time = 0.15
-	_apply_upper_body_filter(oneshot_l, anim_player, anim_names.get("JabL", ""))
+	_apply_upper_body_filter(oneshot_l, anim_player, _anim_names.get("JabL", ""))
 	tree.add_node(&"oneshot_l", oneshot_l)
-	tree.connect_node(&"oneshot_l", 0, &"skate")     # base input
-	tree.connect_node(&"oneshot_l", 1, &"hook_l")   # shot input
+	tree.connect_node(&"oneshot_l", 0, base_output)
+	tree.connect_node(&"oneshot_l", 1, &"hook_l")
 
-	# JabR OneShot: chains after left so both can coexist
-	# JabR uses a Blend2 to pick the correct variant for current stance
 	var jab_r_a := AnimationNodeAnimation.new()
-	jab_r_a.animation = anim_names.get("JabR", &"JabR")
+	jab_r_a.animation = _anim_names.get("JabR", &"JabR")
 	tree.add_node(&"jab_r_a", jab_r_a)
+
 	var jab_r_b := AnimationNodeAnimation.new()
-	jab_r_b.animation = anim_names.get("JabRB", &"JabRB")
+	jab_r_b.animation = _anim_names.get("JabRB", &"JabRB")
 	tree.add_node(&"jab_r_b", jab_r_b)
+
 	var jab_r_blend := AnimationNodeBlend2.new()
 	tree.add_node(&"cross_r", jab_r_blend)
 	tree.connect_node(&"cross_r", 0, &"jab_r_a")
@@ -128,48 +113,62 @@ func _setup_character() -> void:
 	var oneshot_r := AnimationNodeOneShot.new()
 	oneshot_r.fadein_time = 0.05
 	oneshot_r.fadeout_time = 0.15
-	_apply_upper_body_filter(oneshot_r, anim_player, anim_names.get("JabR", ""))
+	_apply_upper_body_filter(oneshot_r, anim_player, _anim_names.get("JabR", ""))
 	tree.add_node(&"oneshot_r", oneshot_r)
-	tree.connect_node(&"oneshot_r", 0, &"oneshot_l")  # chain from L output
-	tree.connect_node(&"oneshot_r", 1, &"cross_r")    # shot input
+	tree.connect_node(&"oneshot_r", 0, &"oneshot_l")
+	tree.connect_node(&"oneshot_r", 1, &"cross_r")
 
-	# Wire to output
-	tree.connect_node(&"output", 0, &"oneshot_r")
-
-	_anim_tree.tree_root = tree
-	_anim_tree.active = true
+	return &"oneshot_r"
 
 
-func _apply_upper_body_filter(oneshot: AnimationNodeOneShot, ap: AnimationPlayer, anim_name: String) -> void:
-	"""Enable filter on a OneShot node.  Auto-discovers track paths from the
-	attack animation so we don't have to hard-code skeleton paths."""
-	if not anim_name or not ap.has_animation(anim_name):
+func _is_action_locked() -> bool:
+	if not _anim_tree:
+		return false
+	return bool(_anim_tree.get("parameters/oneshot_l/active")) \
+		or bool(_anim_tree.get("parameters/oneshot_r/active"))
+
+
+func _on_stride_updated(stride_val: float) -> void:
+	if _anim_tree:
+		_anim_tree.set("parameters/hook_l/blend_amount", stride_val)
+		_anim_tree.set("parameters/cross_r/blend_amount", stride_val)
+
+
+# -- Combat ----------------------------------------------------------------
+
+## Schedule the hit-check to fire at the animation apex instead of frame-0.
+func _schedule_punch_hit() -> void:
+	if punch_apex_delay <= 0.0:
+		execute_melee()
 		return
-	oneshot.filter_enabled = true
-	var anim := ap.get_animation(anim_name)
-	for i in anim.get_track_count():
-		oneshot.set_filter_path(anim.track_get_path(i), true)
+	get_tree().create_timer(punch_apex_delay, false).timeout.connect(execute_melee)
 
 
-func _set_loop_mode(ap: AnimationPlayer, anim_name: String, mode: Animation.LoopMode) -> void:
-	if anim_name and ap.has_animation(anim_name):
-		ap.get_animation(anim_name).loop_mode = mode
+## Activate an ability from the loadout by its input action.
+func _activate_ability(action: String) -> void:
+	var ability := _loadout.get_ability_for_action(action)
+	if not ability:
+		return
+	ability.activate(self)
 
 
-func _find_child_by_class(root: Node, class_name_: StringName) -> Node:
-	for child in root.get_children():
-		if child.is_class(class_name_):
-			return child
-		var found := _find_child_by_class(child, class_name_)
-		if found:
-			return found
-	return null
+## Deactivate an ability (input released). Only matters for HOLD abilities.
+func _deactivate_ability(action: String) -> void:
+	var ability := _loadout.get_ability_for_action(action)
+	if not ability:
+		return
+	ability.deactivate(self)
 
 
-# ── Input ─────────────────────────────────────────────────────────────────
+# -- Death -----------------------------------------------------------------
+
+func _on_died() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+# -- Input -----------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Mouse look (only while captured)
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_camera_pivot.rotation.y -= event.relative.x * mouse_sensitivity
 		_camera_pivot.rotation.x -= event.relative.y * mouse_sensitivity
@@ -179,18 +178,22 @@ func _unhandled_input(event: InputEvent) -> void:
 			deg_to_rad(pitch_max_deg),
 		)
 
-	# Escape → free cursor
 	if event.is_action_pressed("ui_cancel"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
-	# Click to re-capture (only when cursor is free — don't attack)
 	if event is InputEventMouseButton and event.pressed:
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 			return
 
-	# Attacks (only fires when cursor is captured, thanks to the return above)
-	# Block new punches while either fist is still swinging
+	# Ability keys: press -> activate, release -> deactivate (mode-aware).
+	if event is InputEventKey and event.keycode in _ability_keys:
+		var action: String = _ability_keys[event.keycode]
+		if event.pressed:
+			_activate_ability(action)
+		else:
+			_deactivate_ability(action)
+
 	if _anim_tree:
 		var l_active: bool = _anim_tree.get("parameters/oneshot_l/active")
 		var r_active: bool = _anim_tree.get("parameters/oneshot_r/active")
@@ -200,62 +203,25 @@ func _unhandled_input(event: InputEvent) -> void:
 					"parameters/oneshot_l/request",
 					AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE,
 				)
-				_stride_b = false  # opposite foot leads
 				_stride_timer = 0.0
+				_schedule_punch_hit()
 			elif event.is_action_pressed("cross_right"):
 				_anim_tree.set(
 					"parameters/oneshot_r/request",
 					AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE,
 				)
-				_stride_b = true  # opposite foot leads
 				_stride_timer = 0.0
+				_schedule_punch_hit()
 
 
-# ── Movement ──────────────────────────────────────────────────────────────
+# -- Movement --------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
-	if not is_on_floor():
-		velocity.y -= _gravity * delta
-
 	if Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = jump_velocity
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	# Blend idle ↔ skate based on whether we're moving
-	var is_moving := input_dir.length() > 0.1
-	if _anim_tree:
-		var move_blend: float = 1.0 if is_moving else 0.0
-		_anim_tree.set("parameters/skate/blend_amount",
-			lerp(float(_anim_tree.get("parameters/skate/blend_amount")), move_blend, 8.0 * delta))
-		# Alternate stride every 1s while moving (pause during punches)
-		var punching := bool(_anim_tree.get("parameters/oneshot_l/active")) or bool(_anim_tree.get("parameters/oneshot_r/active"))
-		if is_moving and not punching:
-			_stride_timer += delta
-			if _stride_timer >= 1.0:
-				_stride_timer -= 1.0
-				_stride_b = not _stride_b
-		elif not is_moving and not punching:
-			_stride_timer = 0.0
-			_stride_b = false
-		var stride_val: float = 1.0 if _stride_b else 0.0
-		_anim_tree.set("parameters/skate_blend/blend_amount",
-			lerp(float(_anim_tree.get("parameters/skate_blend/blend_amount")), stride_val, 6.0 * delta))
-		# Sync jab variants to current stride
-		_anim_tree.set("parameters/hook_l/blend_amount", stride_val)
-		_anim_tree.set("parameters/cross_r/blend_amount", stride_val)
 	var direction := Vector3(input_dir.x, 0.0, input_dir.y)
 	direction = direction.rotated(Vector3.UP, _camera_pivot.rotation.y).normalized()
 
-	if direction:
-		velocity.x = direction.x * speed
-		velocity.z = direction.z * speed
-		if _character:
-			var target_angle := atan2(direction.x, direction.z)
-			_character.rotation.y = lerp_angle(
-				_character.rotation.y, target_angle, rotation_speed * delta
-			)
-	else:
-		velocity.x = move_toward(velocity.x, 0.0, speed)
-		velocity.z = move_toward(velocity.z, 0.0, speed)
-
-	move_and_slide()
+	_apply_movement(direction, delta)

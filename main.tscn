@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://wk5u0budvkgs" path="res://spin.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://bprn4t28uj5h0" path="res://player.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://npc.tscn" id="3"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 
@@ -43,7 +44,7 @@ transform = Transform3D(0.74102545, 0.48296306, -0.46650648, 0.6515113, -0.68529
 shadow_enabled = true
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=120757685]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, -2, 2)
+transform = Transform3D(6.1, 0, 0, 0, 1, 0, 0, 0, 4.4, 12, 0, -9)
 mesh = SubResource("plane_mesh")
 surface_material_override/0 = SubResource("ground_mat")
 
@@ -66,3 +67,6 @@ surface_material_override/0 = SubResource("sphere_mat")
 
 [node name="Player" parent="." unique_id=434613878 instance=ExtResource("2")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 3)
+
+[node name="NPC" parent="." unique_id=563433591 instance=ExtResource("3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.1, -3)
