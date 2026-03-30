@@ -10,6 +10,7 @@ class_name CharacterBase
 signal melee_strike(event: MeleeEvent)
 
 @export var speed: float = 5.0
+@export var speed_multiplier: float = 1.0
 @export var rotation_speed: float = 10.0
 @export var punch_reach: float = 2.5
 @export var punch_weight: float = 50.0
@@ -201,12 +202,14 @@ func _apply_movement(direction: Vector3, delta: float) -> void:
 
 	var is_moving := direction.length() > 0.1
 
+	var effective_speed := speed * speed_multiplier
+
 	if is_moving:
-		velocity.x = direction.x * speed
-		velocity.z = direction.z * speed
+		velocity.x = direction.x * effective_speed
+		velocity.z = direction.z * effective_speed
 	else:
-		velocity.x = move_toward(velocity.x, 0.0, speed)
-		velocity.z = move_toward(velocity.z, 0.0, speed)
+		velocity.x = move_toward(velocity.x, 0.0, effective_speed)
+		velocity.z = move_toward(velocity.z, 0.0, effective_speed)
 
 	if is_moving and _character:
 		var target_angle := atan2(direction.x, direction.z)

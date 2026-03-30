@@ -14,5 +14,5 @@ func create_self_effects(user: Node) -> Array:
 	return [MeleeModifierEffect.new(
 		func(event: MeleeEvent):
 			event.effects.append(PoisonEffect.new(event.user)),
-		"Envenom", 0.0, -1, user,
+		"Envenom", 0.65, -1, user,
 	)]

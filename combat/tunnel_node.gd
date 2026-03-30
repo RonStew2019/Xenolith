@@ -16,6 +16,24 @@ var partner: TunnelNode = null
 ## The player body currently inside the proximity zone (or null).
 var _nearby_player: Node = null
 
+## True while a player is being tweened through this tunnel.
+var _is_traveling: bool = false
+
+## Reference to the active travel tween (for cleanup on early despawn).
+var _travel_tween: Tween = null
+
+## Reference to the player currently mid-travel (for cleanup on early despawn).
+var _traveling_player: Node = null
+
+## Reference to the destination tunnel during travel (for highlight cleanup).
+var _travel_destination: TunnelNode = null
+
+## Highlight ring shown on the destination tunnel while a player is traveling.
+var _highlight: MeshInstance3D = null
+
+## Inverted cone floating above the destination tunnel while a player is traveling.
+var _highlight_cone: MeshInstance3D = null
+
 # -- Palette & Dimensions --------------------------------------------------
 
 const ENTRANCE_COLOR := Color(0.02, 0.02, 0.02)
@@ -36,9 +54,14 @@ func _ready() -> void:
 	_build_entrance()
 	_build_rocks()
 	_build_proximity_area()
+	_build_highlight()
 
 
 func _exit_tree() -> void:
+	# If this node is the highlighted destination being freed, turn off the ring.
+	hide_highlight()
+	# If a player is mid-travel when this tunnel is freed, clean up safely.
+	_abort_travel()
 	# Hide the interaction prompt if the tunnel is removed while a player
 	# is still inside the proximity zone.
 	if _nearby_player and is_instance_valid(_nearby_player):
@@ -60,17 +83,119 @@ func _unhandled_input(event: InputEvent) -> void:
 
 # -- Public API ------------------------------------------------------------
 
-## Teleport [param player] to the partner tunnel entrance.
+## Animate [param player] through the tunnel to the partner entrance.
+## Three-phase tween: sink → underground travel → rise.
 func travel(player: Node) -> void:
+	if _is_traveling:
+		return
 	if not partner or not is_instance_valid(partner):
 		return
-	# Land slightly above the partner so the character doesn't clip.
-	player.global_position = partner.global_position + Vector3.UP * TRAVEL_Y_OFFSET
-	# Dismiss the prompt -- the player is leaving this tunnel's zone.
+
+	# Dismiss prompt and clear proximity before we begin.
 	var prompt = player.get("_interaction_prompt")
 	if prompt:
 		prompt.hide_prompt()
 	_nearby_player = null
+
+	# Lock player movement for the duration of travel.  Unhandled input stays
+	# enabled so the player can still look around (mouse look only touches
+	# _camera_pivot rotation and doesn't need physics processing).
+	_is_traveling = true
+	_traveling_player = player
+	_travel_destination = partner
+	player.set_physics_process(false)
+
+	# Light up the destination tunnel so the player can see where they're going.
+	partner.show_highlight()
+	player.velocity = Vector3.ZERO
+
+	# Waypoints.
+	var sink_pos: Vector3 = global_position + Vector3.DOWN * 0.5
+	var partner_underground: Vector3 = partner.global_position + Vector3.DOWN * 0.5
+	var emerge_pos: Vector3 = partner.global_position + Vector3.UP * TRAVEL_Y_OFFSET
+
+	# Speed-based underground travel duration.
+	var travel_dist: float = global_position.distance_to(partner.global_position)
+	var travel_duration: float = travel_dist / (player.speed * 1.75)
+
+	var tween := player.create_tween()
+	_travel_tween = tween
+
+	# Phase 1: Sink into tunnel (parallel scale + position, ~0.3s).
+	tween.tween_property(player._character, "scale", Vector3(0.3, 0.3, 0.3), 0.3)
+	tween.parallel().tween_property(player, "global_position", sink_pos, 0.3)
+
+	# Phase 2: Travel underground (sequential — starts after Phase 1 completes).
+	tween.tween_property(player, "global_position", partner_underground, travel_duration)
+
+	# Phase 3: Rise from partner tunnel (parallel scale + position, ~0.3s).
+	tween.tween_property(player._character, "scale", Vector3.ONE, 0.3)
+	tween.parallel().tween_property(player, "global_position", emerge_pos, 0.3)
+
+	# Cleanup: re-enable player control (sequential — after Phase 3).
+	tween.tween_callback(_finish_travel)
+
+
+## Called when the travel tween completes normally.
+func _finish_travel() -> void:
+	if _traveling_player and is_instance_valid(_traveling_player):
+		_traveling_player.set_physics_process(true)
+	if _travel_destination and is_instance_valid(_travel_destination):
+		_travel_destination.hide_highlight()
+	_traveling_player = null
+	_travel_destination = null
+	_travel_tween = null
+	_is_traveling = false
+
+
+## Abort an in-progress travel, restoring the player to a safe state.
+## Called from [method _exit_tree] when the tunnel is freed mid-travel.
+func _abort_travel() -> void:
+	if not _is_traveling:
+		return
+
+	# Kill the tween immediately.
+	if _travel_tween and _travel_tween.is_valid():
+		_travel_tween.kill()
+	_travel_tween = null
+
+	if _traveling_player and is_instance_valid(_traveling_player):
+		# Restore model scale in case we were mid-shrink/grow.
+		if _traveling_player._character:
+			_traveling_player._character.scale = Vector3.ONE
+		# Try to surface the player at the partner; fall back to current pos.
+		if partner and is_instance_valid(partner):
+			_traveling_player.global_position = (
+				partner.global_position + Vector3.UP * TRAVEL_Y_OFFSET
+			)
+		else:
+			# No valid partner — nudge upward so we're not stuck underground.
+			_traveling_player.global_position.y += TRAVEL_Y_OFFSET + 0.5
+		# Re-enable control.
+		_traveling_player.set_physics_process(true)
+	if _travel_destination and is_instance_valid(_travel_destination):
+		_travel_destination.hide_highlight()
+	_traveling_player = null
+	_travel_destination = null
+	_is_traveling = false
+
+
+# -- Highlight API ---------------------------------------------------------
+
+## Show the x-ray highlight ring on this tunnel entrance.
+func show_highlight() -> void:
+	if _highlight:
+		_highlight.visible = true
+	if _highlight_cone:
+		_highlight_cone.visible = true
+
+
+## Hide the x-ray highlight visuals on this tunnel entrance.
+func hide_highlight() -> void:
+	if _highlight:
+		_highlight.visible = false
+	if _highlight_cone:
+		_highlight_cone.visible = false
 
 
 # -- Visual Construction ---------------------------------------------------
@@ -150,6 +275,45 @@ func _build_rocks() -> void:
 		mat.roughness = 0.85
 		mesh_inst.material_override = mat
 		add_child(mesh_inst)
+
+
+func _build_highlight() -> void:
+	_highlight = MeshInstance3D.new()
+
+	var torus := TorusMesh.new()
+	var major_radius := ENTRANCE_RADIUS + 0.1   # Centre of the tube ring.
+	var minor_radius := 0.04                     # Tube thickness.
+	torus.inner_radius = major_radius - minor_radius
+	torus.outer_radius = major_radius + minor_radius
+	torus.rings = 32
+	torus.ring_segments = 8
+	_highlight.mesh = torus
+
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(1.0, 0.5, 0.0, 0.85)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.no_depth_test = true
+	mat.render_priority = 10
+	_highlight.material_override = mat
+
+	_highlight.position = Vector3(0.0, 0.05, 0.0)
+	_highlight.visible = false
+	add_child(_highlight)
+
+	# Inverted cone floating above the entrance, sharing the same material.
+	_highlight_cone = MeshInstance3D.new()
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = 0.3
+	cone.height = 0.5
+	cone.radial_segments = 16
+	_highlight_cone.mesh = cone
+	_highlight_cone.material_override = mat
+	_highlight_cone.position = Vector3(0.0, 0.8, 0.0)
+	_highlight_cone.rotation.x = PI
+	_highlight_cone.visible = false
+	add_child(_highlight_cone)
 
 
 # -- Proximity Area --------------------------------------------------------

@@ -22,6 +22,7 @@ var _interaction_prompt: InteractionPrompt
 var _ability_keys: Dictionary = {
 	KEY_1: "ability_1",
 	KEY_2: "ability_2",
+	KEY_3: "ability_3",
 }
 
 
@@ -56,9 +57,10 @@ func _setup_loadout() -> void:
 	_loadout = Loadout.new()
 	_loadout.add_ability(EnvenomAbility.new("ability_1"))
 	_loadout.add_ability(TunnelAbility.new("ability_2"))
+	_loadout.add_ability(CoilAbility.new("ability_3"))
 
 	var bar := AbilityBar.new()
-	bar.bind(_loadout, { "ability_1": "1", "ability_2": "2" })
+	bar.bind(_loadout, { "ability_1": "1", "ability_2": "2", "ability_3": "3" })
 	_hud_layer.add_child(bar)
 
 

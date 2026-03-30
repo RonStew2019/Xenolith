@@ -27,7 +27,7 @@ var _character: Node
 func _init(
 	p_on_strike: Callable = Callable(),
 	p_name: String = "Melee Modifier",
-	p_weight: float = 0.0,
+	p_weight: float = 0.65,
 	p_duration: int = -1,
 	p_source: Node = null,
 ) -> void:
