@@ -29,10 +29,10 @@ var duration: int = -1
 var source: Node = null
 
 ## Can multiple copies of the effect exist simultaneously
-var is_stackable: bool = true
+var is_stackable: bool = false
 
 ## Do subsequent applications reset duration
-var is_refresh: bool = false
+var is_refreshable: bool = false
 
 
 func _init(
@@ -40,13 +40,15 @@ func _init(
 	p_heat: float = 0.0,
 	p_duration: int = -1,
 	p_source: Node = null,
-	p_is_stackable: bool = true
+	p_is_stackable = false,
+	p_is_refreshable: bool = true
 ) -> void:
 	effect_name = p_name
 	heat = p_heat
 	duration = p_duration
 	source = p_source
 	is_stackable = p_is_stackable
+	is_refreshable = p_is_refreshable
 
 
 ## Called once when the effect is first applied to a reactor.
@@ -67,3 +69,15 @@ func on_remove(_reactor: Node) -> void:
 ## True when duration has counted down to zero.
 func is_expired() -> bool:
 	return duration == 0
+
+func get_heat() -> float:
+	return heat
+
+func set_heat(p_heat: float) -> void:
+	heat = p_heat
+
+func get_duration() -> int:
+	return duration
+
+func set_duration(p_duration) -> void:
+	duration = p_duration

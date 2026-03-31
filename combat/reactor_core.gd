@@ -14,7 +14,7 @@ class_name ReactorCore
 
 signal integrity_changed(current: float, maximum: float)
 signal heat_changed(current: float, maximum: float)
-signal effect_applied(effect: StatusEffect)
+signal effect_applied(effect: StatusEffect, is_refresh: bool)
 signal effect_removed(effect: StatusEffect)
 signal reactor_breached
 signal heat_overflowed(amount: float)
@@ -25,8 +25,29 @@ signal overheat_ended
 
 # -- Configuration ---------------------------------------------------------
 
-@export var max_integrity: float = 1000.0
-@export var max_heat: float = 1000.0
+@export var max_integrity: float = 1000.0:
+	set(value):
+		max_integrity = value
+		if not is_node_ready():
+			return
+		# Clamp integrity to new ceiling.
+		var clamped := clampf(integrity, 0.0, max_integrity)
+		if not is_equal_approx(integrity, clamped):
+			integrity = clamped          # Setter emits integrity_changed
+		else:
+			# Value unchanged but max changed — still notify listeners.
+			integrity_changed.emit(integrity, max_integrity)
+
+@export var max_heat: float = 1000.0:
+	set(value):
+		max_heat = value
+		if not is_node_ready():
+			return
+		# Re-trigger heat setter to re-evaluate overheat and emit signal
+		# with the updated max.  (Heat is NOT clamped — overheat is allowed.)
+		heat = heat
+
+@export var enable_ambient_venting: bool = true
 
 # -- State -----------------------------------------------------------------
 
@@ -68,7 +89,8 @@ func _ready() -> void:
 		push_warning("ReactorCore: CombatTickClock autoload not found.")
 	integrity = max_integrity
 	heat = 0.0
-	apply_effect(StatusEffect.new("Ambient Venting", -3.0, -1, null))
+	if enable_ambient_venting:
+		apply_effect(StatusEffect.new("Ambient Venting", -3.0, -1, null))
 	# Connect self-repair event handling after init so the assignments
 	# above don't trigger premature apply/remove logic.
 	overheat_started.connect(_on_overheat_started)
@@ -78,11 +100,16 @@ func _ready() -> void:
 # -- Public API ------------------------------------------------------------
 
 func apply_effect(effect: StatusEffect) -> void:
-	if !effect.is_stackable && get_effect_by_name(effect.effect_name):
+	var existing_instance = get_effect_by_name(effect.effect_name)
+	if existing_instance && effect.is_refreshable:
+		existing_instance.set_duration(effect.get_duration())
+		effect_applied.emit(effect, true)
+		return
+	if existing_instance && !effect.is_stackable:
 		return
 	_effects.append(effect)
 	effect.on_apply(self)
-	effect_applied.emit(effect)
+	effect_applied.emit(effect, false)
 	_spawn_damage_number(effect)
 
 

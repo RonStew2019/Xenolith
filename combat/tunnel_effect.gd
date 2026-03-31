@@ -30,7 +30,7 @@ func _init(p_source: Node = null) -> void:
 	super._init("Tunnel", 1.0, 300, p_source, true)
 
 
-func on_apply(reactor: Node) -> void:
+func on_apply(_reactor: Node) -> void:
 	var scene_root := source.get_tree().current_scene
 
 	# Horizontal forward from the camera pivot (pitch-flattened).
@@ -62,7 +62,7 @@ func on_apply(reactor: Node) -> void:
 	_tunnel_a.travel(source)
 
 
-func on_remove(reactor: Node) -> void:
+func on_remove(_reactor: Node) -> void:
 	if is_instance_valid(_tunnel_a):
 		_tunnel_a.queue_free()
 	_tunnel_a = null

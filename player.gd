@@ -23,6 +23,7 @@ var _ability_keys: Dictionary = {
 	KEY_1: "ability_1",
 	KEY_2: "ability_2",
 	KEY_3: "ability_3",
+	KEY_4: "ability_4",
 }
 
 
@@ -58,9 +59,10 @@ func _setup_loadout() -> void:
 	_loadout.add_ability(EnvenomAbility.new("ability_1"))
 	_loadout.add_ability(TunnelAbility.new("ability_2"))
 	_loadout.add_ability(CoilAbility.new("ability_3"))
+	_loadout.add_ability(CloneAbility.new("ability_4"))
 
 	var bar := AbilityBar.new()
-	bar.bind(_loadout, { "ability_1": "1", "ability_2": "2", "ability_3": "3" })
+	bar.bind(_loadout, { "ability_1": "1", "ability_2": "2", "ability_3": "3", "ability_4": "4" })
 	_hud_layer.add_child(bar)
 
 
@@ -163,6 +165,22 @@ func _deactivate_ability(action: String) -> void:
 
 
 # -- Death -----------------------------------------------------------------
+
+func _try_transfer_control() -> bool:
+	var target := _find_living_clone_in_family()
+	if not target:
+		return false
+	# Clean up our camera and HUD before the clone creates its own
+	if _camera_pivot:
+		_camera_pivot.queue_free()
+		_camera_pivot = null
+	if _hud_layer:
+		_hud_layer.queue_free()
+		_hud_layer = null
+	# Tell the clone to take over
+	target.enable_player_control()
+	return true
+
 
 func _on_died() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

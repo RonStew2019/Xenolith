@@ -31,6 +31,11 @@ const REACTOR_LIGHT_RANGE: float = 1.5
 ## Warm golden ember tint matching the ceramic theme.
 const REACTOR_LIGHT_COLOR: Color = Color(1.0, 0.55, 0.18)
 
+## Direct clone children spawned by this entity's CloneAbility.
+var clone_children: Array = []
+## The entity that cloned us (null for originals).
+var clone_parent: Node = null
+
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _stride_timer: float = 0.0
 var _stride_b: bool = false
@@ -256,9 +261,16 @@ func _on_stride_updated(_stride_val: float) -> void:
 # ── Death ────────────────────────────────────────────────────────────────
 
 ## Kill this character: disable controls, explode into debris.
+## Before dying, gives subclasses a chance to transfer player control
+## to a living clone.  The body still explodes (cool!), but _on_died()
+## is skipped when control transfers (no death screen).
 func die() -> void:
 	if _dead:
 		return
+
+	# Before dying, give subclasses a chance to transfer player control to a clone.
+	var did_transfer := _try_transfer_control()
+
 	_dead = true
 
 	set_physics_process(false)
@@ -268,7 +280,9 @@ func die() -> void:
 	collision_mask = 0
 
 	_explode_character()
-	_on_died()
+
+	if not did_transfer:
+		_on_died()
 
 
 func _explode_character() -> void:
@@ -300,6 +314,42 @@ func _explode_character() -> void:
 	_anim_tree = null
 	_character.queue_free()
 	_character = null
+
+
+## Override in subclasses that support player control + cloning.
+## Return true if control was successfully transferred to a living clone.
+func _try_transfer_control() -> bool:
+	return false
+
+
+## Find the first living clone in our children, or recursively in their children.
+func _find_living_clone() -> Node:
+	for child in clone_children:
+		if is_instance_valid(child) and not child._dead:
+			return child
+	for child in clone_children:
+		if is_instance_valid(child):
+			var found = child._find_living_clone()
+			if found:
+				return found
+	return null
+
+
+## Search the entire clone family tree for any living clone.
+## Walks up to the root ancestor first, then searches all descendants.
+func _find_living_clone_in_family() -> Node:
+	# First try our own descendants (fast path).
+	var target := _find_living_clone()
+	if target:
+		return target
+	# Walk up to the family root.
+	var root: Node = self
+	while root.clone_parent and is_instance_valid(root.clone_parent):
+		root = root.clone_parent
+	# Search from root (if we ARE the root, _find_living_clone already checked).
+	if root != self:
+		target = root._find_living_clone()
+	return target
 
 
 ## Override in subclasses for controller-specific cleanup.
