@@ -101,6 +101,13 @@ func is_active() -> bool:
 	return _active
 
 
+## Return a fresh, independent copy of this ability bound to the same
+## input action.  Works for any subclass whose _init takes a single
+## optional String (the input action) — which all current abilities do.
+func duplicate_ability() -> Ability:
+	return get_script().new(input_action)
+
+
 # -- Internals -------------------------------------------------------------
 
 func _get_reactor(user: Node) -> Node:

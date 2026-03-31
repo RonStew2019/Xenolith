@@ -110,7 +110,8 @@ func apply_effect(effect: StatusEffect) -> void:
 	_effects.append(effect)
 	effect.on_apply(self)
 	effect_applied.emit(effect, false)
-	_spawn_damage_number(effect)
+	if effect.is_show_dmg:
+		_spawn_damage_number(effect)
 
 
 func remove_effect(effect: StatusEffect) -> void:

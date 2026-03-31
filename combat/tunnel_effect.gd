@@ -33,9 +33,15 @@ func _init(p_source: Node = null) -> void:
 func on_apply(_reactor: Node) -> void:
 	var scene_root := source.get_tree().current_scene
 
-	# Horizontal forward from the camera pivot (pitch-flattened).
-	var cam_forward: Vector3 = -source._camera_pivot.global_transform.basis.z
-	var forward := Vector3(cam_forward.x, 0.0, cam_forward.z).normalized()
+	# Horizontal forward direction (pitch-flattened).
+	var forward: Vector3
+	if source._camera_pivot:
+		var cam_forward: Vector3 = -source._camera_pivot.global_transform.basis.z
+		forward = Vector3(cam_forward.x, 0.0, cam_forward.z).normalized()
+	else:
+		# AI clones have no camera pivot — derive forward from model facing.
+		var yaw: float = source._character.rotation.y if source._character else source.rotation.y
+		forward = Vector3(sin(yaw), 0.0, cos(yaw)).normalized()
 
 	# Floor Y derived from capsule geometry.
 	var origin: Vector3 = source.global_position

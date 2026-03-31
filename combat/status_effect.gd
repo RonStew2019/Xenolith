@@ -34,6 +34,9 @@ var is_stackable: bool = false
 ## Do subsequent applications reset duration
 var is_refreshable: bool = false
 
+## Display dmg indicator?
+var is_show_dmg: bool = true
+
 
 func _init(
 	p_name: String = "",
@@ -41,7 +44,8 @@ func _init(
 	p_duration: int = -1,
 	p_source: Node = null,
 	p_is_stackable = false,
-	p_is_refreshable: bool = true
+	p_is_refreshable: bool = true,
+	p_is_show_dmg = true
 ) -> void:
 	effect_name = p_name
 	heat = p_heat
@@ -49,6 +53,7 @@ func _init(
 	source = p_source
 	is_stackable = p_is_stackable
 	is_refreshable = p_is_refreshable
+	is_show_dmg = p_is_show_dmg
 
 
 ## Called once when the effect is first applied to a reactor.

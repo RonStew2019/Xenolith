@@ -18,7 +18,7 @@ const SPAWN_RADIUS := 2.0
 
 
 func _init(p_source: Node = null) -> void:
-	super._init("Clone", 0.0, 1, p_source, true)
+	super._init("Clone", 75.0, 1, p_source, true)
 
 
 func on_apply(reactor: Node) -> void:
@@ -42,6 +42,12 @@ func on_apply(reactor: Node) -> void:
 	for i in CLONE_COUNT:
 		var clone := CloneMech.new()
 		clone.name = "Clone_%s_%d" % [source.name, i]
+
+		# Wire up the family tree BEFORE add_child so that
+		# _ready() → _setup_loadout() can see clone_parent.
+		clone.clone_parent = source
+		source.clone_children.append(clone)
+
 		scene_root.add_child(clone)
 
 		# Position 120° apart at SPAWN_RADIUS metres.
@@ -60,9 +66,5 @@ func on_apply(reactor: Node) -> void:
 			clone_reactor.heat = 0.0
 
 			# Apply stat-transfer-on-death so dying clones return capacity.
-			var transfer := StatTransferOnDeathEffect.new(source, source)
+			var transfer := StatTransferOnDeathEffect.new(source, source, 2, -1, false)
 			clone_reactor.apply_effect(transfer)
-
-		# Wire up the family tree (vars on CharacterBase).
-		clone.clone_parent = source
-		source.clone_children.append(clone)

@@ -27,3 +27,12 @@ func get_ability_for_action(action: String) -> Ability:
 ## Snapshot of current abilities (safe to iterate while mutating).
 func get_abilities() -> Array:
 	return _abilities.duplicate()
+
+
+## Return a new Loadout with independent copies of every ability.
+## Each clone gets its own ability instances (fresh _active / _applied_effects).
+func duplicate_loadout() -> Loadout:
+	var copy := Loadout.new()
+	for ability in _abilities:
+		copy.add_ability(ability.duplicate_ability())
+	return copy

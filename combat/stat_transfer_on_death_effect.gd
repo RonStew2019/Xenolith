@@ -23,9 +23,12 @@ var _host_reactor: Node = null
 
 func _init(
 	p_target: Node = null,
-	p_source: Node = null
+	p_source: Node = null,
+	p_heat: float = 0.0,
+	p_duration: int = -1,
+	p_is_show_dmg: bool = true,
 ) -> void:
-	super._init("StatTransferOnDeath", 0.0, -1, p_source, true)
+	super._init("StatTransferOnDeath", p_heat, p_duration, p_source, false, true, p_is_show_dmg)
 	target = p_target
 
 

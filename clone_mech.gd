@@ -1,14 +1,21 @@
 extends CharacterBase
 class_name CloneMech
-## Dual-mode entity: AI wander by default, switchable to full player control.
+## Dual-mode entity: AI combat by default, switchable to full player control.
 ##
-## Spawned by [CloneAbility].  Wanders aimlessly until the controlling
-## player dies, at which point [method enable_player_control] is called
-## and the clone becomes the new player avatar — camera, HUD, and all.
+## Spawned by [CloneAbility].  AI clones fight autonomously using a
+## priority-based state machine: FLEE (tunnel away at high heat) >
+## CLONE (spawn sub-clones when able) > ATTACK (punch in melee range) >
+## ENGAGE (activate ability_1 within 5m) > SEEK (chase nearest enemy) >
+## IDLE (wander when no targets exist).  Clones only attack non-family
+## characters (those not sharing the same root ancestor).
 ##
-## Clones carry a full ability loadout (including CloneAbility itself)
-## so multi-generational cloning is possible.  Reactor capacity return on
-## death is handled by [StatTransferOnDeathEffect], applied by [CloneEffect].
+## When the controlling player dies, [method enable_player_control] is
+## called and the clone becomes the new player avatar — camera, HUD, and all.
+##
+## Clones copy the parent's full ability loadout (including CloneAbility
+## itself) so multi-generational cloning is possible.  Reactor capacity
+## return on death is handled by [StatTransferOnDeathEffect], applied by
+## [CloneEffect].
 
 # -- Exports ---------------------------------------------------------------
 
@@ -36,12 +43,22 @@ var _hud_layer: CanvasLayer          ## null until player-controlled
 var _camera_pivot: Node3D            ## null until player-controlled (needed by TunnelEffect!)
 var _interaction_prompt: InteractionPrompt  ## null until player-controlled
 
-## Wander AI state (mirrors npc.gd).
-enum State { IDLE, WALKING }
+## AI state machine.
+enum State { IDLE, WALKING, SEEK, ENGAGE, ATTACK, FLEE, CLONE }
 var _state: State = State.IDLE
 var _idle_timer: float = 0.0
 var _target_point: Vector3 = Vector3.ZERO
 var _origin: Vector3 = Vector3.ZERO
+
+## Combat AI tracking.
+var _next_punch_left: bool = true
+var _tunnel_cooldown: float = 0.0
+var _clone_cooldown: float = 0.0
+const TUNNEL_COOLDOWN_SECS: float = 10.0
+const CLONE_COOLDOWN_SECS: float = 15.0
+const ENGAGE_RANGE: float = 5.0
+const DISENGAGE_RANGE: float = 15.0
+const FLEE_HEAT_RATIO: float = 0.80
 
 ## Maps raw keycodes to loadout action strings for ability activation.
 var _ability_keys: Dictionary = {
@@ -73,7 +90,7 @@ func _create_collision_shape() -> void:
 func _setup_reactor() -> void:
 	_reactor = ReactorCore.new()
 	_reactor.name = "ReactorCore"
-	_reactor.enable_ambient_venting = false  # Clones overheat naturally!
+	_reactor.enable_ambient_venting = true  # Instead of suppressing venting we'll add weight to status transfer to parent
 	add_child(_reactor)
 	_reactor.reactor_breached.connect(die)
 	_bind_reactor_glow(_reactor)
@@ -81,10 +98,14 @@ func _setup_reactor() -> void:
 
 func _setup_loadout() -> void:
 	_loadout = Loadout.new()
-	_loadout.add_ability(EnvenomAbility.new("ability_1"))
-	_loadout.add_ability(TunnelAbility.new("ability_2"))
-	_loadout.add_ability(CoilAbility.new("ability_3"))
-	_loadout.add_ability(CloneAbility.new("ability_4"))
+	if clone_parent and clone_parent.get("_loadout"):
+		_loadout = clone_parent._loadout.duplicate_loadout()
+	else:
+		# Fallback for orphan clones (shouldn't happen, but safety)
+		_loadout.add_ability(EnvenomAbility.new("ability_1"))
+		_loadout.add_ability(TunnelAbility.new("ability_2"))
+		_loadout.add_ability(CoilAbility.new("ability_3"))
+		_loadout.add_ability(CloneAbility.new("ability_4"))
 
 
 # ── Physics (dual-mode) ─────────────────────────────────────────────────
@@ -110,16 +131,97 @@ func _player_physics(delta: float) -> void:
 	_apply_movement(direction, delta)
 
 
-# -- AI wander (mirrors npc.gd) -------------------------------------------
+# -- AI combat state machine -----------------------------------------------
 
 func _ai_physics(delta: float) -> void:
+	# Tick cooldowns.
+	if _tunnel_cooldown > 0.0:
+		_tunnel_cooldown -= delta
+	if _clone_cooldown > 0.0:
+		_clone_cooldown -= delta
+
+	# --- Priority 1: FLEE (heat dangerously high) ---
+	if _reactor and _reactor.max_heat > 0.0:
+		var heat_ratio: float = _reactor.heat / _reactor.max_heat
+		if heat_ratio >= FLEE_HEAT_RATIO and _tunnel_cooldown <= 0.0:
+			var tunnel_ability := _loadout.get_ability_for_action("ability_2")
+			if tunnel_ability and not tunnel_ability.is_active():
+				_activate_ability("ability_2")
+				_tunnel_cooldown = TUNNEL_COOLDOWN_SECS
+				# Engage Coil to cool down after fleeing.
+				var coil := _loadout.get_ability_for_action("ability_3")
+				if coil and not coil.is_active():
+					_activate_ability("ability_3")
+				_apply_movement(Vector3.ZERO, delta)
+				return
+
+	# --- Priority 2: CLONE (reactor has enough capacity) ---
+	if _clone_cooldown <= 0.0 and _reactor and _reactor.max_heat > 100.0:
+		var clone_ability := _loadout.get_ability_for_action("ability_4")
+		if clone_ability and not clone_ability.is_active():
+			_activate_ability("ability_4")
+			_clone_cooldown = CLONE_COOLDOWN_SECS
+
+	# --- Find nearest enemy ---
+	var enemy := _find_nearest_enemy()
+
+	if enemy:
+		var to_enemy : Vector3 = enemy.global_position - global_position
+		to_enemy.y = 0.0
+		var dist := to_enemy.length()
+		var dir := to_enemy.normalized() if dist > 0.01 else Vector3.ZERO
+
+		# --- Priority 3: ATTACK (within punch reach) ---
+		if dist <= punch_reach:
+			_state = State.ATTACK
+			# Disengage Coil so we fight at full speed.
+			var coil := _loadout.get_ability_for_action("ability_3")
+			if coil and coil.is_active():
+				_activate_ability("ability_3")
+			if not _is_action_locked() and _anim_tree:
+				var param: String = "parameters/oneshot_l/request" if _next_punch_left else "parameters/oneshot_r/request"
+				_anim_tree.set(param, AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
+				_stride_timer = 0.0
+				_schedule_punch_hit()
+				_next_punch_left = not _next_punch_left
+			# Keep closing in slightly so we don't drift out of range.
+			_apply_movement(dir * 0.3, delta)
+			return
+
+		# --- Priority 4: ENGAGE (within 5m, activate ability_1) ---
+		if dist <= ENGAGE_RANGE:
+			_state = State.ENGAGE
+			# Disengage Coil so we fight at full speed.
+			var coil := _loadout.get_ability_for_action("ability_3")
+			if coil and coil.is_active():
+				_activate_ability("ability_3")
+			var envenom := _loadout.get_ability_for_action("ability_1")
+			if envenom and not envenom.is_active():
+				_activate_ability("ability_1")
+			_apply_movement(dir, delta)
+			return
+
+		# --- Priority 5: SEEK (chase the target) ---
+		_state = State.SEEK
+		# Disengage Envenom if we've drifted far from the target.
+		if dist >= DISENGAGE_RANGE:
+			var envenom := _loadout.get_ability_for_action("ability_1")
+			if envenom and envenom.is_active():
+				_activate_ability("ability_1")
+		_apply_movement(dir, delta)
+		return
+
+	# --- Priority 6: IDLE / wander (no targets) ---
+	# Disengage Envenom if it's still active with no target.
+	var envenom := _loadout.get_ability_for_action("ability_1")
+	if envenom and envenom.is_active():
+		_activate_ability("ability_1")
 	match _state:
 		State.IDLE:
 			_idle_timer -= delta
 			if _idle_timer <= 0.0:
 				_enter_walking()
 			_apply_movement(Vector3.ZERO, delta)
-
 		State.WALKING:
 			var to_target := _target_point - global_position
 			to_target.y = 0.0
@@ -128,6 +230,10 @@ func _ai_physics(delta: float) -> void:
 				_apply_movement(Vector3.ZERO, delta)
 			else:
 				_apply_movement(to_target.normalized(), delta)
+		_:
+			# Was in combat but lost target — go idle.
+			_enter_idle()
+			_apply_movement(Vector3.ZERO, delta)
 
 
 func _enter_idle() -> void:
@@ -144,6 +250,39 @@ func _pick_wander_point() -> Vector3:
 	var angle := randf() * TAU
 	var dist := randf_range(wander_radius * 0.3, wander_radius)
 	return _origin + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
+
+
+# ── AI Helpers ──────────────────────────────────────────────────────────
+
+## Walk up the clone_parent chain to find the root ancestor of [param node].
+func _get_family_root(node: Node) -> Node:
+	var root := node
+	while root.get("clone_parent") and is_instance_valid(root.clone_parent):
+		root = root.clone_parent
+	return root
+
+
+## Returns true if [param other] is in the same family tree as this clone.
+func _is_family(other: Node) -> bool:
+	var my_root := _get_family_root(self)
+	var other_root := _get_family_root(other)
+	return my_root == other_root
+
+
+## Scan the "characters" group for the closest non-family, non-dead enemy.
+func _find_nearest_enemy() -> Node:
+	var best: Node = null
+	var best_dist := INF
+	for node in get_tree().get_nodes_in_group("characters"):
+		if node == self or _is_family(node):
+			continue
+		if node.get("_dead"):
+			continue
+		var dist := global_position.distance_to(node.global_position)
+		if dist < best_dist:
+			best = node
+			best_dist = dist
+	return best
 
 
 # ── Input (player-controlled only) ──────────────────────────────────────
