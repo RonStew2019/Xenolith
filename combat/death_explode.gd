@@ -201,6 +201,7 @@ static func _spawn_debris_body(
 ) -> RigidBody3D:
 	var rb := RigidBody3D.new()
 	rb.global_transform = pose
+	rb.collision_layer = 0
 
 	var mi := MeshInstance3D.new()
 	mi.mesh = piece_mesh

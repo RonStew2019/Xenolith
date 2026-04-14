@@ -36,6 +36,11 @@ var clone_children: Array = []
 ## The entity that cloned us (null for originals).
 var clone_parent: Node = null
 
+## Number of active movement locks. While > 0, _apply_movement skips
+## horizontal velocity writes so external forces (knockback) aren't overridden.
+## Stackable counter — multiple knockback effects can lock simultaneously.
+var movement_lock_count: int = 0
+
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _stride_timer: float = 0.0
 var _stride_b: bool = false
@@ -207,22 +212,23 @@ func _apply_movement(direction: Vector3, delta: float) -> void:
 
 	var is_moving := direction.length() > 0.1
 
-	var effective_speed := speed * speed_multiplier
+	if movement_lock_count <= 0:
+		var effective_speed := speed * speed_multiplier
 
-	if is_moving:
-		velocity.x = direction.x * effective_speed
-		velocity.z = direction.z * effective_speed
-	else:
-		velocity.x = move_toward(velocity.x, 0.0, effective_speed)
-		velocity.z = move_toward(velocity.z, 0.0, effective_speed)
+		if is_moving:
+			velocity.x = direction.x * effective_speed
+			velocity.z = direction.z * effective_speed
+		else:
+			velocity.x = move_toward(velocity.x, 0.0, effective_speed)
+			velocity.z = move_toward(velocity.z, 0.0, effective_speed)
 
-	if is_moving and _character:
-		var target_angle := atan2(direction.x, direction.z)
-		_character.rotation.y = lerp_angle(
-			_character.rotation.y, target_angle, rotation_speed * delta
-		)
+		if is_moving and _character:
+			var target_angle := atan2(direction.x, direction.z)
+			_character.rotation.y = lerp_angle(
+				_character.rotation.y, target_angle, rotation_speed * delta
+			)
 
-	_update_locomotion_anim(is_moving, delta)
+	_update_locomotion_anim(is_moving if movement_lock_count <= 0 else false, delta)
 	move_and_slide()
 
 
@@ -278,6 +284,14 @@ func die() -> void:
 	remove_from_group("characters")
 	collision_layer = 0
 	collision_mask = 0
+
+	# -- Death cleanup: deactivate abilities, then shut down reactor ----
+	var loadout = get("_loadout")
+	if loadout:
+		loadout.deactivate_all(self)
+	var reactor := get_reactor()
+	if reactor:
+		reactor.shutdown()
 
 	_explode_character()
 

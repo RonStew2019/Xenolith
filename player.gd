@@ -16,6 +16,8 @@ var _reactor: Node
 var _loadout: Loadout
 var _hud_layer: CanvasLayer
 var _interaction_prompt: InteractionPrompt
+var _ability_bar: AbilityBar
+var current_preset: String = ""
 
 ## Maps raw keycodes to loadout action strings for ability activation.
 ## Extend this dictionary to bind more ability slots.
@@ -55,15 +57,24 @@ func _setup_reactor() -> void:
 
 
 func _setup_loadout() -> void:
-	_loadout = Loadout.new()
-	_loadout.add_ability(EnvenomAbility.new("ability_1"))
-	_loadout.add_ability(TunnelAbility.new("ability_2"))
-	_loadout.add_ability(CoilAbility.new("ability_3"))
-	_loadout.add_ability(CloneAbility.new("ability_4"))
+	swap_loadout("Xenolith Mk.I")
 
-	var bar := AbilityBar.new()
-	bar.bind(_loadout, { "ability_1": "1", "ability_2": "2", "ability_3": "3", "ability_4": "4" })
-	_hud_layer.add_child(bar)
+
+## Replace the current loadout with a named preset and rebuild the AbilityBar.
+func swap_loadout(preset_name: String) -> void:
+	if _loadout:
+		_loadout.deactivate_all(self)
+	if _ability_bar:
+		_hud_layer.remove_child(_ability_bar)
+		_ability_bar.queue_free()
+		_ability_bar = null
+
+	_loadout = LoadoutPresets.create_loadout(preset_name)
+	current_preset = preset_name
+
+	_ability_bar = AbilityBar.new()
+	_ability_bar.bind(_loadout, { "ability_1": "1", "ability_2": "2", "ability_3": "3", "ability_4": "4" })
+	_hud_layer.add_child(_ability_bar)
 
 
 # -- Animation Extensions --------------------------------------------------

@@ -155,13 +155,6 @@ func _ai_physics(delta: float) -> void:
 				_apply_movement(Vector3.ZERO, delta)
 				return
 
-	# --- Priority 2: CLONE (reactor has enough capacity) ---
-	if _clone_cooldown <= 0.0 and _reactor and _reactor.max_heat > 100.0:
-		var clone_ability := _loadout.get_ability_for_action("ability_4")
-		if clone_ability and not clone_ability.is_active():
-			_activate_ability("ability_4")
-			_clone_cooldown = CLONE_COOLDOWN_SECS
-
 	# --- Find nearest enemy ---
 	var enemy := _find_nearest_enemy()
 
@@ -170,6 +163,13 @@ func _ai_physics(delta: float) -> void:
 		to_enemy.y = 0.0
 		var dist := to_enemy.length()
 		var dir := to_enemy.normalized() if dist > 0.01 else Vector3.ZERO
+
+		# --- Priority 2: CLONE (reactor has enough capacity) ---
+		if _clone_cooldown <= 0.0 and _reactor and _reactor.max_heat > 100.0:
+			var clone_ability := _loadout.get_ability_for_action("ability_4")
+			if clone_ability and not clone_ability.is_active():
+				_activate_ability("ability_4")
+				_clone_cooldown = CLONE_COOLDOWN_SECS
 
 		# --- Priority 3: ATTACK (within punch reach) ---
 		if dist <= punch_reach:
@@ -503,8 +503,34 @@ func _try_transfer_control() -> bool:
 
 # ── Death ────────────────────────────────────────────────────────────────
 
-func _on_died() -> void:
+## Override [method CharacterBase.die] to perform structural family-tree
+## cleanup (re-parent orphans, erase self from parent) BEFORE the reactor
+## shuts down and triggers [StatTransferOnDeathEffect].  This ensures the
+## [code]clone_parent[/code] chain is intact for ancestor-walking fallback.
+func die() -> void:
+	if _dead:
+		return
+	_reparent_orphan_children()
 	if clone_parent and is_instance_valid(clone_parent):
 		clone_parent.clone_children.erase(self)
+	super.die()
+
+
+## Re-parent our living clone children to our own [member clone_parent]
+## (their grandparent) so the family tree stays connected after we die.
+## Keeps [method _find_living_clone_in_family] and
+## [StatTransferOnDeathEffect] ancestor-walking working correctly for
+## multi-generational clones.
+func _reparent_orphan_children() -> void:
+	var grandparent: Node = clone_parent if is_instance_valid(clone_parent) else null
+	for child in clone_children.duplicate():
+		if is_instance_valid(child):
+			child.clone_parent = grandparent
+			if grandparent:
+				grandparent.clone_children.append(child)
+	clone_children.clear()
+
+
+func _on_died() -> void:
 	if is_player_controlled:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

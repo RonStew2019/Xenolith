@@ -75,6 +75,7 @@ var heat: float = 0.0:
 var _effects: Array = []
 var _self_repair_effect: SelfRepairEffect = null
 var _is_overheating: bool = false
+var _is_shutdown: bool = false
 
 ## Maps tracked StatusEffects to { label: FloatingNumber, total: float }.
 var _damage_numbers: Dictionary = {}
@@ -149,6 +150,35 @@ func clear_effects() -> void:
 	for effect in snapshot:
 		remove_effect(effect)
 	_self_repair_effect = null
+
+
+## Full teardown for a destroyed mech.  Cleans up every effect (calling
+## [method StatusEffect.on_remove] on each), retires lingering damage
+## numbers, disconnects from [CombatTickClock], and zeroes heat.
+## Safe to call multiple times — subsequent calls are no-ops.
+func shutdown() -> void:
+	if _is_shutdown:
+		return
+	_is_shutdown = true
+
+	# 1. Remove every active effect (triggers on_remove + damage-number retire).
+	clear_effects()
+
+	# 2. Safety net: retire any damage numbers not covered by clear_effects().
+	for effect in _damage_numbers:
+		var entry: Dictionary = _damage_numbers[effect]
+		var label: Node = entry.label
+		if is_instance_valid(label) and label.has_method("start_expire_sequence"):
+			label.start_expire_sequence()
+	_damage_numbers.clear()
+
+	# 3. Disconnect from the tick clock so the dead reactor stops processing.
+	var clock := get_node_or_null("/root/CombatTickClock")
+	if clock and clock.has_signal("tick") and clock.tick.is_connected(_on_combat_tick):
+		clock.tick.disconnect(_on_combat_tick)
+
+	# 4. Zero heat to prevent lingering overheat signals.
+	heat = 0.0
 
 
 func get_heat_pressure() -> float:

@@ -16,6 +16,14 @@ func remove_ability(ability: Ability) -> void:
 	_abilities.erase(ability)
 
 
+## Force-deactivate every ability in this loadout.
+## Called when the owning mech dies so TOGGLE/HOLD self-effects are
+## properly removed from the reactor before it shuts down.
+func deactivate_all(user: Node) -> void:
+	for ability in get_abilities():
+		ability.force_deactivate(user)
+
+
 ## Return the first ability mapped to [param action], or null.
 func get_ability_for_action(action: String) -> Ability:
 	for ability in _abilities:

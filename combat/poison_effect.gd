@@ -10,7 +10,7 @@ var _reactor: Node
 
 
 func _init(p_source: Node = null) -> void:
-	super._init("Poison", 1.0, -1, p_source, true, false)
+	super._init("Poison", 0.1, -1, p_source, true, false)
 
 
 func on_apply(reactor: Node) -> void:

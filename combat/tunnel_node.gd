@@ -106,7 +106,13 @@ func travel(player: Node) -> void:
 	player.set_physics_process(false)
 
 	# Light up the destination tunnel so the player can see where they're going.
-	partner.show_highlight()
+	# Only show the highlight for player-controlled entities — AI clones
+	# tunneling shouldn't flash the exit indicator.
+	var _is_player_ctrl: bool = true
+	if player.get("is_player_controlled") != null:
+		_is_player_ctrl = player.is_player_controlled
+	if _is_player_ctrl:
+		partner.show_highlight()
 	player.velocity = Vector3.ZERO
 
 	# Waypoints.
@@ -163,16 +169,22 @@ func _abort_travel() -> void:
 		# Restore model scale in case we were mid-shrink/grow.
 		if _traveling_player._character:
 			_traveling_player._character.scale = Vector3.ONE
-		# Try to surface the player at the partner; fall back to current pos.
-		if partner and is_instance_valid(partner):
-			_traveling_player.global_position = (
-				partner.global_position + Vector3.UP * TRAVEL_Y_OFFSET
-			)
-		else:
-			# No valid partner — nudge upward so we're not stuck underground.
-			_traveling_player.global_position.y += TRAVEL_Y_OFFSET + 0.5
-		# Re-enable control.
-		_traveling_player.set_physics_process(true)
+		# If the player died while mid-travel (e.g. die() -> deactivate_all
+		# -> queue_free tunnels), do NOT re-enable physics or reposition.
+		# die() has already disabled physics and zeroed collision masks;
+		# re-enabling would let the dead body resume movement with no
+		# collision, falling through the world.
+		if not _traveling_player._dead:
+			# Try to surface the player at the partner; fall back to current pos.
+			if partner and is_instance_valid(partner):
+				_traveling_player.global_position = (
+					partner.global_position + Vector3.UP * TRAVEL_Y_OFFSET
+				)
+			else:
+				# No valid partner -- nudge upward so we're not stuck underground.
+				_traveling_player.global_position.y += TRAVEL_Y_OFFSET + 0.5
+			# Re-enable control.
+			_traveling_player.set_physics_process(true)
 	if _travel_destination and is_instance_valid(_travel_destination):
 		_travel_destination.hide_highlight()
 	_traveling_player = null

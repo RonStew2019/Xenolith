@@ -20,6 +20,10 @@ var target: Node = null
 ## Cached reference to the reactor this effect is applied to (ReactorCore).
 var _host_reactor: Node = null
 
+## Guard flag to prevent double-transfer if both the signal and on_remove()
+## attempt the transfer (e.g. shutdown() removes the effect after breach).
+var _transferred: bool = false
+
 
 func _init(
 	p_target: Node = null,
@@ -39,6 +43,11 @@ func on_apply(reactor: Node) -> void:
 
 
 func on_remove(reactor: Node) -> void:
+	# If the reactor breached but the signal callback was disconnected
+	# before it could fire (e.g. shutdown() removed us first), transfer now.
+	if not _transferred and is_instance_valid(reactor) and reactor.integrity <= 0.0:
+		_transferred = true
+		_transfer_stats()
 	if is_instance_valid(reactor) and reactor.reactor_breached.is_connected(_on_reactor_breached):
 		reactor.reactor_breached.disconnect(_on_reactor_breached)
 	_host_reactor = null
@@ -46,31 +55,60 @@ func on_remove(reactor: Node) -> void:
 
 ## Callback fired when the host reactor breaches (integrity reaches zero).
 func _on_reactor_breached() -> void:
-	_transfer_stats()
+	if not _transferred:
+		_transferred = true
+		_transfer_stats()
 
 
-## Performs the actual stat transfer from the host reactor to the target's
-## reactor.  Guards against the target being null, freed, or already dead.
+## Performs the actual stat transfer from the host reactor to the resolved
+## target's reactor.  If the direct [member target] is invalid or dead,
+## walks up the [code]clone_parent[/code] ancestry chain to find the nearest
+## living ancestor — ensuring grandchildren with dead parents still return
+## stats to grandparents (or further up the chain).
 func _transfer_stats() -> void:
-	if not is_instance_valid(target):
-		return
 	if not is_instance_valid(_host_reactor):
 		return
 
-	var target_reactor := _find_reactor(target)
-	if target_reactor == null:
+	var resolved: Node = _resolve_target()
+	if resolved == null:
 		return
 
-	# Don't transfer to an already-dead reactor.
-	if target_reactor.integrity <= 0.0:
+	var resolved_reactor := _find_reactor(resolved)
+	if resolved_reactor == null:
 		return
 
-	target_reactor.max_heat += _host_reactor.max_heat
-	target_reactor.max_integrity += _host_reactor.max_integrity
-	target_reactor.integrity = minf(
-		target_reactor.integrity + _host_reactor.integrity,
-		target_reactor.max_integrity
+	resolved_reactor.max_heat += _host_reactor.max_heat
+	resolved_reactor.max_integrity += _host_reactor.max_integrity
+	resolved_reactor.integrity = minf(
+		resolved_reactor.integrity + _host_reactor.integrity,
+		resolved_reactor.max_integrity
 	)
+
+
+## Resolve the transfer target.  Returns the direct [member target] when it
+## is still valid and alive, otherwise walks up the [code]clone_parent[/code]
+## chain from the host mech to find the nearest living ancestor.  Returns
+## [code]null[/code] when every ancestor in the chain is dead or freed.
+func _resolve_target() -> Node:
+	# Fast path: direct target is alive — no traversal needed.
+	if is_instance_valid(target):
+		var tr := _find_reactor(target)
+		if tr and tr.integrity > 0.0:
+			return target
+
+	# Fallback: walk up the clone_parent chain from the host mech.
+	var host: Node = _host_reactor.get_parent()
+	if not is_instance_valid(host):
+		return null
+
+	var ancestor: Node = host.get("clone_parent")
+	while is_instance_valid(ancestor):
+		var ar := _find_reactor(ancestor)
+		if ar and ar.integrity > 0.0:
+			return ancestor
+		ancestor = ancestor.get("clone_parent")
+
+	return null
 
 
 ## Locate a [ReactorCore] on the given node.
