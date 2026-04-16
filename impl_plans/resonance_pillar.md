@@ -172,9 +172,9 @@ Agent: Ability Agent
 
 
 
-\[ ] Create combat/persistent\_projectile.gd (class PersistentProjectile extends Area3D)
+\[x] Create combat/persistent\_projectile.gd (class PersistentProjectile extends Area3D)
 
-\[ ] Based on Projectile / AoeProjectile but with different collision semantics:
+\[x] Based on Projectile / AoeProjectile but with different collision semantics:
 
 &#x20; ◦ collision\_mask = 1 (default/terrain layer only — NOT layer containing characters/other projectiles)
 
@@ -184,11 +184,11 @@ Agent: Ability Agent
 
 &#x20; ◦ Ignores other projectiles (they're on layer 0 already; collision\_mask exclusion is sufficient)
 
-\[ ] Lifetime timer: if nothing hit within lifetime seconds, fizzle silently (no pillar spawned) — matches Projectile pattern
+\[x] Lifetime timer: if nothing hit within lifetime seconds, fizzle silently (no pillar spawned) — matches Projectile pattern
 
-\[ ] Visual: small emissive orb in-flight, distinct color from other projectiles (suggest violet/cyan to match "resonance")
+\[x] Visual: small emissive orb in-flight, distinct color from other projectiles (suggest violet/cyan to match "resonance")
 
-\[ ] setup(user, direction, speed, lifetime) — no effect payload needed; pillar spawn is the "payload"
+\[x] setup(user, direction, speed, lifetime) — no effect payload needed; pillar spawn is the "payload"
 
 
 
