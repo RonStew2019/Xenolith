@@ -28,14 +28,15 @@ var duration: int = -1
 ## The node that applied this effect (may be null for environmental).
 var source: Node = null
 
+## The character this effect is applied to (set automatically by
+## [method ReactorCore.apply_effect] before [method on_apply] runs).
+var target: Node = null
+
 ## Can multiple copies of the effect exist simultaneously
 var is_stackable: bool = false
 
 ## Do subsequent applications reset duration
 var is_refreshable: bool = false
-
-## Display dmg indicator?
-var is_show_dmg: bool = true
 
 
 func _init(
@@ -45,7 +46,6 @@ func _init(
 	p_source: Node = null,
 	p_is_stackable = false,
 	p_is_refreshable: bool = true,
-	p_is_show_dmg = true
 ) -> void:
 	effect_name = p_name
 	heat = p_heat
@@ -53,7 +53,6 @@ func _init(
 	source = p_source
 	is_stackable = p_is_stackable
 	is_refreshable = p_is_refreshable
-	is_show_dmg = p_is_show_dmg
 
 
 ## Called once when the effect is first applied to a reactor.

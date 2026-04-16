@@ -34,6 +34,8 @@ static func create_loadout(preset_name: String) -> Loadout:
 		"Resonance Mk.I":
 			loadout.add_ability(ResonantPunchAbility.new("ability_1"))
 			loadout.add_ability(KnockbackAbility.new("ability_2"))
+			loadout.add_ability(BlasterAbility.new("ability_3"))
+			loadout.add_ability(MortarAbility.new("ability_4"))
 		_:
 			push_warning("LoadoutPresets: unknown preset '%s'" % preset_name)
 	return loadout

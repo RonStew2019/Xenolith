@@ -176,7 +176,7 @@ func _on_heat_changed(current: float, maximum: float) -> void:
 	_update_pressure()
 
 
-func _on_effect_applied(_effect: Variant) -> void:
+func _on_effect_applied(_effect: Variant, _is_refresh: bool) -> void:
 	_update_effects_count()
 
 

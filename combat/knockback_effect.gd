@@ -50,8 +50,8 @@ func _init(
 	p_duration: int = DEFAULT_DURATION,
 	p_heat: float = DEFAULT_HEAT,
 ) -> void:
-	# stackable = true, refreshable = false, show_dmg = true
-	super._init("Knockback", p_heat, p_duration, p_source, true, false, true)
+	# stackable = true, refreshable = false
+	super._init("Knockback", p_heat, p_duration, p_source, true, false)
 	_initial_speed = p_initial_speed
 	_total_duration = p_duration
 

@@ -1,4 +1,4 @@
-extends Ability
+extends "res://combat/ability.gd"
 class_name AoeCasterAbility
 ## Reusable base for abilities that deliver effects in an area around the
 ## caster.  Handles the full AOE pipeline: scan the "characters" group,

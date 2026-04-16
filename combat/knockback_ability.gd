@@ -1,4 +1,4 @@
-extends AoeCasterAbility
+extends "res://combat/aoe_caster_ability.gd"
 class_name KnockbackAbility
 ## Fires an omnidirectional repulsor burst — every character within
 ## [member aoe_radius] metres is blasted away with a [KnockbackEffect].
@@ -9,6 +9,10 @@ func _init(p_input: String = "ability_2") -> void:
 	input_action = p_input
 	activation_mode = ActivationMode.INSTANT
 	aoe_radius = 5.5
+
+
+func create_self_effects(user: Node) -> Array:
+	return [StatusEffect.new("Repulse Cost", 18.0, 1, user, true, false)]
 
 
 func create_other_effects(user: Node) -> Array:

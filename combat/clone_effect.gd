@@ -99,7 +99,7 @@ func on_apply(reactor: Node) -> void:
 			clone_reactor.heat = 0.0
 
 			# Apply stat-transfer-on-death so dying clones return capacity.
-			var transfer := StatTransferOnDeathEffect.new(source, source, 2, -1, false)
+			var transfer := StatTransferOnDeathEffect.new(source, source, 2, -1)
 			clone_reactor.apply_effect(transfer)
 
 

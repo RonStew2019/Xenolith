@@ -109,10 +109,10 @@ func apply_effect(effect: StatusEffect) -> void:
 	if existing_instance && !effect.is_stackable:
 		return
 	_effects.append(effect)
+	effect.target = get_parent()
 	effect.on_apply(self)
 	effect_applied.emit(effect, false)
-	if effect.is_show_dmg:
-		_spawn_damage_number(effect)
+	_spawn_damage_number(effect)
 
 
 func remove_effect(effect: StatusEffect) -> void:
