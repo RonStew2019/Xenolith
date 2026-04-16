@@ -198,9 +198,9 @@ Agent: Ability Agent (primary) + Status Effect Agent (reactor integration)
 
 
 
-\[ ] Create combat/resonance\_pillar.gd (class ResonancePillar extends StaticBody3D — static so physics doesn't move it)
+\[x] Create combat/resonance\_pillar.gd (class ResonancePillar extends StaticBody3D — static so physics doesn't move it)
 
-\[ ] Fields:
+\[x] Fields:
 
 &#x20; ◦ caster: Node — the character that spawned this pillar
 
@@ -208,7 +208,7 @@ Agent: Ability Agent (primary) + Status Effect Agent (reactor integration)
 
 &#x20; ◦ Cached references to caster abilities it listens to (Slot 1, Slot 2, Slot 3)
 
-\[ ] \_ready():
+\[x] \_ready():
 
 &#x20; ◦ Add itself to the "characters" group with is\_pillar = true marker (per Q2, Option A)
 
@@ -220,11 +220,11 @@ Agent: Ability Agent (primary) + Status Effect Agent (reactor integration)
 
 &#x20; ◦ Subscribe to caster's ability signals (see Phase 4)
 
-\[ ] get\_reactor() -> Node — returns \_reactor so existing reactor-lookup code works
+\[x] get\_reactor() -> Node — returns \_reactor so existing reactor-lookup code works
 
-\[ ] \_exit\_tree(): disconnect all caster signals cleanly (handle both normal deletion and caster-already-freed)
+\[x] \_exit\_tree(): disconnect all caster signals cleanly (handle both normal deletion and caster-already-freed)
 
-\[ ] Defensive: every signal handler must is\_instance\_valid(caster) check at entry
+\[x] Defensive: every signal handler must is\_instance\_valid(caster) check at entry
 
 
 
