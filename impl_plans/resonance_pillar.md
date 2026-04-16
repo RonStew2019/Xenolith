@@ -152,7 +152,7 @@ Agent: Status Effect Agent (+ light Ability Agent coordination)
 
 \[x] Make sure ReactorCore.apply\_effect does not require the parent to be a CharacterBody3D or have a velocity field (currently KnockbackEffect assumes this — but Knockback shouldn't target pillars anyway; see Phase 5.2)
 
-\[ ] Add a get\_reactor() method to whatever pillar class ends up hosting a reactor so apply\_effect-via-reactor-lookup code (e.g. AoeAbility.\_deliver\_aoe\_at) works uniformly
+\[x] Add a get\_reactor() method to whatever pillar class ends up hosting a reactor so apply\_effect-via-reactor-lookup code (e.g. AoeAbility.\_deliver\_aoe\_at) works uniformly
 
 
 
