@@ -123,3 +123,8 @@ func on_remove(_reactor: Node) -> void:
 	if is_instance_valid(_tunnel_b):
 		_tunnel_b.queue_free()
 	_tunnel_b = null
+
+
+## Holds refs to spawned TunnelNode scene objects — reflection copy would share node refs.
+func duplicate_for_broadcast(_new_source: Node) -> StatusEffect:
+	return null

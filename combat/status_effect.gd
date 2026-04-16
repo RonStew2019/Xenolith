@@ -85,3 +85,29 @@ func get_duration() -> int:
 
 func set_duration(p_duration) -> void:
 	duration = p_duration
+
+
+## Produce a fresh broadcast-ready copy of this effect, attributed to
+## [param new_source].  Used by reflector-style effects (e.g.
+## [CounterHitEffect]) that bounce incoming effects to nearby targets.
+##
+## Default implementation: reflection-based shallow copy of the base
+## [StatusEffect] fields.  Sufficient for "pure data" effects whose only
+## state is heat / duration / flags.
+##
+## Override and return [code]null[/code] to opt out of being broadcast
+## (e.g. for effects that hold [Callable]s, spawned scene nodes, or
+## other non-trivially-copyable state).
+##
+## Override and return a hand-built instance for effects that need
+## custom duplication semantics (e.g. half heat on bounce, etc.).
+func duplicate_for_broadcast(new_source: Node) -> StatusEffect:
+	var fresh: StatusEffect = get_script().new()
+	fresh.effect_name = effect_name
+	fresh.heat = heat
+	fresh.duration = duration
+	fresh.is_stackable = is_stackable
+	fresh.is_refreshable = is_refreshable
+	fresh.source = new_source
+	# target intentionally left null — ReactorCore.apply_effect sets it.
+	return fresh

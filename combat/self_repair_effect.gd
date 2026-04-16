@@ -24,3 +24,8 @@ func _init(
 
 func on_tick(reactor: Node) -> void:
 	reactor.integrity += repair_per_tick
+
+
+## Reactor-internal effect, never inflicted externally — should never be broadcast.
+func duplicate_for_broadcast(_new_source: Node) -> StatusEffect:
+	return null

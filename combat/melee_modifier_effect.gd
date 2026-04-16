@@ -51,3 +51,8 @@ func on_remove(_reactor: Node) -> void:
 func _handle_strike(event: MeleeEvent) -> void:
 	if _on_strike.is_valid():
 		_on_strike.call(event)
+
+
+## Carries a Callable bound to the original caster's method — would mis-fire if bounced.
+func duplicate_for_broadcast(_new_source: Node) -> StatusEffect:
+	return null

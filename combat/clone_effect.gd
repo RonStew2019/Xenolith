@@ -156,3 +156,8 @@ static func _overlaps_batch(
 		if dx * dx + dz * dz < _MIN_SAFE_DISTANCE * _MIN_SAFE_DISTANCE:
 			return true
 	return false
+
+
+## Spawns and tracks an AI clone — reflection copy would alias the clone reference.
+func duplicate_for_broadcast(_new_source: Node) -> StatusEffect:
+	return null

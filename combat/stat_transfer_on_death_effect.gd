@@ -123,3 +123,8 @@ static func _find_reactor(node: Node) -> Node:
 		if child is ReactorCore:
 			return child
 	return null
+
+
+## Death-triggered lifecycle effect, not a "hit" — broadcasting it makes no semantic sense.
+func duplicate_for_broadcast(_new_source: Node) -> StatusEffect:
+	return null
