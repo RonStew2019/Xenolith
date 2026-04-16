@@ -32,12 +32,13 @@ class_name CloneMech
 @export var pitch_min_deg: float = -60.0
 @export var pitch_max_deg: float = 40.0
 @export var jump_velocity: float = 4.5
-@export var punch_apex_delay: float = 0.30
 
 # -- State -----------------------------------------------------------------
 
-var _reactor: Node
-var _loadout: Loadout
+# _reactor, _loadout and punch_apex_delay live on CharacterBase — see the
+# AI host contract comment there. Don't redeclare them here: local vars
+# would shadow the base-class fields and AIController code reaches them
+# through the base contract.
 var _hud_layer: CanvasLayer          ## owned by PlayerAI; null while AI-controlled
 var _camera_pivot: Node3D            ## owned by PlayerAI; null while AI-controlled (needed by TunnelEffect!)
 var _interaction_prompt: InteractionPrompt  ## owned by PlayerAI; null while AI-controlled
@@ -182,6 +183,20 @@ func _is_action_locked() -> bool:
 		or bool(_anim_tree.get("parameters/oneshot_r/active"))
 
 
+## Override [method CharacterBase.try_fire_punch] — drive the extended
+## anim tree's [code]oneshot_l[/code] / [code]oneshot_r[/code] nodes and
+## schedule the apex hit. Returns true so [CombatAI] / [PlayerAI] can
+## advance their alternation state.
+func try_fire_punch(left: bool) -> bool:
+	if not _anim_tree:
+		return false
+	var param: String = "parameters/oneshot_l/request" if left else "parameters/oneshot_r/request"
+	_anim_tree.set(param, AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
+	_stride_timer = 0.0
+	_schedule_punch_hit()
+	return true
+
+
 func _on_stride_updated(stride_val: float) -> void:
 	if _anim_tree:
 		_anim_tree.set("parameters/hook_l/blend_amount", stride_val)
@@ -189,30 +204,6 @@ func _on_stride_updated(stride_val: float) -> void:
 
 
 # ── Combat helpers (called by AIControllers) ───────────────────────────
-
-## Schedule the hit-check to fire at the animation apex instead of frame-0.
-func _schedule_punch_hit() -> void:
-	if punch_apex_delay <= 0.0:
-		execute_melee()
-		return
-	get_tree().create_timer(punch_apex_delay, false).timeout.connect(execute_melee)
-
-
-## Activate an ability from the loadout by its input action.
-func _activate_ability(action: String) -> void:
-	var ability := _loadout.get_ability_for_action(action)
-	if not ability:
-		return
-	ability.activate(self)
-
-
-## Deactivate an ability (input released). Only matters for HOLD abilities.
-func _deactivate_ability(action: String) -> void:
-	var ability := _loadout.get_ability_for_action(action)
-	if not ability:
-		return
-	ability.deactivate(self)
-
 
 # ── Player Control Transfer ─────────────────────────────────────────────
 

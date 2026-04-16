@@ -14,6 +14,10 @@ signal melee_strike(event: MeleeEvent)
 @export var rotation_speed: float = 10.0
 @export var punch_reach: float = 2.5
 @export var punch_weight: float = 50.0
+## Seconds into a swing before the hit-check fires (matches animation apex).
+## Used by [method _schedule_punch_hit]; subclasses with no swing animation
+## can still call it — the hit just resolves immediately when delay <= 0.
+@export var punch_apex_delay: float = 0.30
 
 ## Surface index of the reactor orb in the imported glTF mesh.
 const REACTOR_SURFACE_IDX: int = 4
@@ -51,6 +55,17 @@ var _anim_names: Dictionary = {}
 var _reactor_material: StandardMaterial3D
 var _joint_material: StandardMaterial3D
 var _reactor_light: OmniLight3D
+
+## Shared host contract for [AIController] children — any subclass that
+## spawns a [ReactorCore] should assign it here so controllers can read
+## [code]host._reactor.heat[/code] / [code]host._reactor.max_heat[/code]
+## without reaching into subclass-specific fields.
+var _reactor: Node = null
+## Shared host contract for [AIController] children — subclasses that
+## want ability activation assign a [Loadout] here. Left null on plain
+## NPCs; [method _activate_ability] / [method _deactivate_ability]
+## no-op when this is null so AI code doesn't need to guard the call.
+var _loadout: Loadout = null
 
 
 func _ready() -> void:
@@ -430,6 +445,52 @@ func _find_melee_target(reach: float) -> Node:
 			best = body
 			best_dist = dist
 	return best
+
+
+# ── AI Host Contract ─────────────────────────────────────────────────────
+## Shared surface that any [AIController] can rely on. Subclasses opt
+## into richer behavior by populating [member _loadout] or overriding
+## [method try_fire_punch] / [method _is_action_locked].
+
+## Activate an ability from the loadout by its input action.
+## No-ops when this character has no loadout (e.g. plain NPCs).
+func _activate_ability(action: String) -> void:
+	if _loadout == null:
+		return
+	var ability := _loadout.get_ability_for_action(action)
+	if not ability:
+		return
+	ability.activate(self)
+
+
+## Deactivate an ability (input released / AI wants to drop it).
+## Only matters for HOLD abilities. No-ops when there is no loadout.
+func _deactivate_ability(action: String) -> void:
+	if _loadout == null:
+		return
+	var ability := _loadout.get_ability_for_action(action)
+	if not ability:
+		return
+	ability.deactivate(self)
+
+
+## Schedule the hit-check to fire at the animation apex instead of frame-0.
+## Works even without a swing animation — just resolves immediately when
+## [member punch_apex_delay] is non-positive.
+func _schedule_punch_hit() -> void:
+	if punch_apex_delay <= 0.0:
+		execute_melee()
+		return
+	get_tree().create_timer(punch_apex_delay, false).timeout.connect(execute_melee)
+
+
+## Virtual — try to fire an alternating-hand punch animation and schedule
+## the apex hit. Returns true if a swing was actually started (so AI can
+## advance its alternation state). Default implementation returns false:
+## characters without a punch anim tree simply can't punch.
+## [CloneMech] overrides this to drive its oneshot_l / oneshot_r nodes.
+func try_fire_punch(_left: bool) -> bool:
+	return false
 
 
 # ── Utilities ────────────────────────────────────────────────────────────

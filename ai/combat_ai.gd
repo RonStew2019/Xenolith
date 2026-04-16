@@ -6,12 +6,17 @@ class_name CombatAI
 ##   1. FLEE    — reactor heat >= [constant FLEE_HEAT_RATIO]: tunnel away
 ##                and engage Coil to cool down.
 ##   2. CLONE   — off-cooldown and reactor big enough: spawn a sub-clone.
-##   3. ATTACK  — within [code]host.punch_reach[/code]: alternating hooks.
+##   3. ATTACK  — within [code]host.punch_reach[/code]: alternating hooks
+##                via [method CharacterBase.try_fire_punch].
 ##   4. ENGAGE  — within [constant ENGAGE_RANGE]: activate ability_1 (Envenom).
 ##   5. SEEK    — chase the nearest non-family enemy; disengage Envenom
 ##                beyond [constant DISENGAGE_RANGE].
 ##   6. IDLE    — no targets: fall back to wander-within-radius around
 ##                the host's spawn position.
+##
+## Hosts without a [Loadout] (e.g. plain NPCs) cleanly skip every
+## ability-activation branch — the controller still seeks, attempts to
+## punch (no-op without a punch anim tree), and falls back to wandering.
 ##
 ## Family filtering: clones ignore every character sharing the same
 ## [code]clone_parent[/code] root ancestor.
@@ -58,18 +63,17 @@ func tick(delta: float) -> void:
 		_clone_cooldown -= delta
 
 	var reactor: Node = host._reactor
-	var loadout: Loadout = host._loadout
 
 	# --- Priority 1: FLEE (heat dangerously high) ---
 	if reactor and reactor.max_heat > 0.0:
 		var heat_ratio: float = reactor.heat / reactor.max_heat
 		if heat_ratio >= FLEE_HEAT_RATIO and _tunnel_cooldown <= 0.0:
-			var tunnel_ability := loadout.get_ability_for_action("ability_2")
+			var tunnel_ability := _get_ability("ability_2")
 			if tunnel_ability and not tunnel_ability.is_active():
 				host._activate_ability("ability_2")
 				_tunnel_cooldown = TUNNEL_COOLDOWN_SECS
 				# Engage Coil to cool down after fleeing.
-				var coil := loadout.get_ability_for_action("ability_3")
+				var coil := _get_ability("ability_3")
 				if coil and not coil.is_active():
 					host._activate_ability("ability_3")
 				host._apply_movement(Vector3.ZERO, delta)
@@ -86,7 +90,7 @@ func tick(delta: float) -> void:
 
 		# --- Priority 2: CLONE (reactor has enough capacity) ---
 		if _clone_cooldown <= 0.0 and reactor and reactor.max_heat > 100.0:
-			var clone_ability := loadout.get_ability_for_action("ability_4")
+			var clone_ability := _get_ability("ability_4")
 			if clone_ability and not clone_ability.is_active():
 				host._activate_ability("ability_4")
 				_clone_cooldown = CLONE_COOLDOWN_SECS
@@ -95,15 +99,14 @@ func tick(delta: float) -> void:
 		if dist <= host.punch_reach:
 			_state = State.ATTACK
 			# Disengage Coil so we fight at full speed.
-			var coil := loadout.get_ability_for_action("ability_3")
+			var coil := _get_ability("ability_3")
 			if coil and coil.is_active():
 				host._activate_ability("ability_3")
-			if not host._is_action_locked() and host._anim_tree:
-				var param: String = "parameters/oneshot_l/request" if _next_punch_left else "parameters/oneshot_r/request"
-				host._anim_tree.set(param, AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
-				host._stride_timer = 0.0
-				host._schedule_punch_hit()
-				_next_punch_left = not _next_punch_left
+			# try_fire_punch returns false on hosts with no swing anim
+			# (plain NPCs); only flip alternation on a real swing.
+			if not host._is_action_locked():
+				if host.try_fire_punch(_next_punch_left):
+					_next_punch_left = not _next_punch_left
 			# Keep closing in slightly so we don't drift out of range.
 			host._apply_movement(dir * 0.3, delta)
 			return
@@ -112,10 +115,10 @@ func tick(delta: float) -> void:
 		if dist <= ENGAGE_RANGE:
 			_state = State.ENGAGE
 			# Disengage Coil so we fight at full speed.
-			var coil := loadout.get_ability_for_action("ability_3")
+			var coil := _get_ability("ability_3")
 			if coil and coil.is_active():
 				host._activate_ability("ability_3")
-			var envenom := loadout.get_ability_for_action("ability_1")
+			var envenom := _get_ability("ability_1")
 			if envenom and not envenom.is_active():
 				host._activate_ability("ability_1")
 			host._apply_movement(dir, delta)
@@ -125,7 +128,7 @@ func tick(delta: float) -> void:
 		_state = State.SEEK
 		# Disengage Envenom if we've drifted far from the target.
 		if dist >= DISENGAGE_RANGE:
-			var envenom := loadout.get_ability_for_action("ability_1")
+			var envenom := _get_ability("ability_1")
 			if envenom and envenom.is_active():
 				host._activate_ability("ability_1")
 		host._apply_movement(dir, delta)
@@ -133,7 +136,7 @@ func tick(delta: float) -> void:
 
 	# --- Priority 6: IDLE / wander (no targets) ---
 	# Disengage Envenom if it's still active with no target.
-	var envenom := loadout.get_ability_for_action("ability_1")
+	var envenom := _get_ability("ability_1")
 	if envenom and envenom.is_active():
 		host._activate_ability("ability_1")
 	match _state:
@@ -154,6 +157,16 @@ func tick(delta: float) -> void:
 			# Was in combat but lost target — go idle.
 			_enter_idle()
 			host._apply_movement(Vector3.ZERO, delta)
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────
+
+## Loadout-safe ability lookup. Returns null when the host has no loadout
+## (plain NPCs) so callers can naturally skip ability branches.
+func _get_ability(action: String) -> Ability:
+	if host._loadout == null:
+		return null
+	return host._loadout.get_ability_for_action(action)
 
 
 # ── Wander fallback ──────────────────────────────────────────────────────

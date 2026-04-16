@@ -16,11 +16,11 @@ func _ready() -> void:
 
 
 func _setup_reactor() -> void:
-	var reactor := ReactorCore.new()
-	reactor.name = "ReactorCore"
-	add_child(reactor)
-	reactor.reactor_breached.connect(die)
-	_bind_reactor_glow(reactor)
+	_reactor = ReactorCore.new()
+	_reactor.name = "ReactorCore"
+	add_child(_reactor)
+	_reactor.reactor_breached.connect(die)
+	_bind_reactor_glow(_reactor)
 
 
 # ── AI delegation ────────────────────────────────────────────────────────

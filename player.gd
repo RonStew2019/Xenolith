@@ -8,12 +8,11 @@ extends CharacterBase
 @export var mouse_sensitivity: float = 0.002
 @export var pitch_min_deg: float = -60.0
 @export var pitch_max_deg: float = 40.0
-@export var punch_apex_delay: float = 0.30  ## Seconds into swing before hit-check (matches animation apex)
+# punch_apex_delay is inherited from CharacterBase (AI host contract).
 
 @onready var _camera_pivot: Node3D = $CameraPivot
 
-var _reactor: Node
-var _loadout: Loadout
+# _reactor and _loadout are inherited from CharacterBase (AI host contract).
 var _hud_layer: CanvasLayer
 var _interaction_prompt: InteractionPrompt
 var _ability_bar: AbilityBar
@@ -150,29 +149,10 @@ func _on_stride_updated(stride_val: float) -> void:
 
 
 # -- Combat ----------------------------------------------------------------
-
-## Schedule the hit-check to fire at the animation apex instead of frame-0.
-func _schedule_punch_hit() -> void:
-	if punch_apex_delay <= 0.0:
-		execute_melee()
-		return
-	get_tree().create_timer(punch_apex_delay, false).timeout.connect(execute_melee)
-
-
-## Activate an ability from the loadout by its input action.
-func _activate_ability(action: String) -> void:
-	var ability := _loadout.get_ability_for_action(action)
-	if not ability:
-		return
-	ability.activate(self)
-
-
-## Deactivate an ability (input released). Only matters for HOLD abilities.
-func _deactivate_ability(action: String) -> void:
-	var ability := _loadout.get_ability_for_action(action)
-	if not ability:
-		return
-	ability.deactivate(self)
+# _activate_ability, _deactivate_ability, and _schedule_punch_hit are
+# inherited from CharacterBase (AI host contract). The base versions are
+# null-safe on _loadout, which is fine here because the player always
+# has one set up in _setup_loadout().
 
 
 # -- Death -----------------------------------------------------------------
