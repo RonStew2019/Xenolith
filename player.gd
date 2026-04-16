@@ -57,7 +57,7 @@ func _setup_reactor() -> void:
 
 
 func _setup_loadout() -> void:
-	swap_loadout("Xenolith Mk.I")
+	swap_loadout("Resonance Mk.I")
 
 
 ## Replace the current loadout with a named preset and rebuild the AbilityBar.
