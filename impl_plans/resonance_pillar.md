@@ -28,27 +28,27 @@ Resonance Pillar — Implementation Plan
 
 
 
-Phase 0 — Design decisions still open
+Phase 0 — Design decisions (RESOLVED)
 
 ─────────────────────────────────────
 
 
 
-Resolve these before or during Phase 1. None block starting, but the answers shape specifics.
+All six open design questions were resolved by the user before Phase 1 began. Bake these answers into the relevant later-phase items.
 
 
 
-\[ ] Q1 — Pillar-on-caster-death: Do pillars despawn when the caster dies, or do they persist with their own weak reactor naturally overheating afterward? (Affects whether ResonancePillarAbility.force\_deactivate tears them down, and whether pillar signal subscriptions need to survive a caster-freed state.)
+\[x] Q1 — Pillar-on-caster-death: **Pillars despawn when the caster dies.** `ResonancePillarAbility.force_deactivate` iterates and frees owned pillars; `CharacterBase.die()` → `Loadout.deactivate_all` propagates this automatically.
 
-\[ ] Q2 — Pillar group membership: Option A: add pillars to the "characters" group with an is\_pillar = true flag and teach AI/loadout code to filter it out. Option B: add a new "combat\_targets" group that is a superset of "characters" + pillars, and update AoeAbility / Projectile / AoeProjectile / CounterHitEffect / KnockbackEffect / melee resolution to scan the superset. Recommendation: Option A — smaller blast radius.
+\[x] Q2 — Pillar group membership: **Option A — pillars join the "characters" group with an `is_pillar = true` marker.** AI/loadout/melee/AoE code paths filter on the flag rather than introducing a new group. Smaller blast radius on existing code.
 
-\[ ] Q3 — Weak reactor tuning: max\_heat and max\_integrity for a pillar? Recommend max\_heat = 60, max\_integrity = 1 (any breach = instant delete, no integrity-damage phase). Confirm or override.
+\[x] Q3 — Weak reactor tuning: **max_heat = 100, max_integrity = 1.** Any overflow instantly deletes the pillar (no integrity-damage phase), via the `break_on_breach_deletes_host` flag from Phase 1.3.
 
-\[ ] Q4 — Counter-hit cost-effect: CounterHitAbility currently has no create\_self\_effects cost (it's "free" on the caster). For pillar-cost consistency, should we add a small cost effect now (e.g., "Counter-Hit Cost" 8.0 heat 1-tick) so replication has something to apply? Or keep counter-hit free on both caster and pillars?
+\[x] Q4 — Counter-hit cost-effect: **No separate cost effect — the cost is inherent in `CounterHitEffect` itself.** `CounterHitEffect` already contributes `10.0 heat/tick × 10 ticks = 100 total heat`, which at pillar `max_heat = 100` (Q3) means a pillar that replicates Counter-Hit will breach at or near the effect's expiry. This is **emergent by design**: pillars genuinely spend themselves on Counter-Hit replication. Phase 5.1 implementers should NOT try to "fix" the pillar dying from this — it's the intended cost model.
 
-\[ ] Q5 — Resonance melee replication cost math: ResonantPunchEffect is 1.6 heat/tick × 25 ticks = 40 total heat. You said "1/2 the total" → 20 heat 1-tick applied to the pillar each time it replicates. Confirm 20.0 is the right number, and confirm "per melee hit landed by caster" is the trigger (not "per melee swing", which might miss).
+\[x] Q5 — Resonance melee replication cost: **20.0 heat, 1-tick, applied to the pillar's own reactor on each landed caster melee strike** while Slot 1 is active. Triggered by a **landed hit** (not a whiff) — the `melee_strike` handler must gate on hit confirmation (see Phase 3.2 edge-case note).
 
-\[ ] Q6 — KnockbackEffect source attribution when pillar replicates: KnockbackEffect uses source.global\_position to compute the push-away vector. For pillar-origin repulse we clearly want source = pillar (so the push is away from the pillar). But kill attribution / damage numbers currently also follow source. Is it acceptable for a kill by pillar-repulse to be attributed to the pillar rather than the caster? Alternative: split source into attribution\_source and spatial\_source on KnockbackEffect.
+\[x] Q6 — KnockbackEffect source attribution when pillar replicates: **`KnockbackEffect.new(pillar)` — pillar is the source for both push-direction computation AND kill attribution.** Kills attributed to pillars are acceptable. No source-splitting refactor needed on `KnockbackEffect`.
 
 
 
@@ -210,9 +210,9 @@ Agent: Ability Agent (primary) + Status Effect Agent (reactor integration)
 
 \[ ] \_ready():
 
-&#x20; ◦ Add itself to the pillar group (per Q2 decision)
+&#x20; ◦ Add itself to the "characters" group with is\_pillar = true marker (per Q2, Option A)
 
-&#x20; ◦ Create ReactorCore child with max\_heat = 60, max\_integrity = 1, break\_on\_breach\_deletes\_host = true (values pending Q3)
+&#x20; ◦ Create ReactorCore child with max\_heat = 100, max\_integrity = 1, break\_on\_breach\_deletes\_host = true (per Q3)
 
 &#x20; ◦ Create collision shape (capsule or cylinder, \~0.5m radius × 2.5m height)
 
@@ -294,11 +294,11 @@ Agent: Ability Agent (logic) + Status Effect Agent (cost effect creation)
 
 &#x20; ◦ Apply ResonantPunchEffect.new(caster) to each valid target's reactor (source = caster, so escalation-on-refresh still attributes to caster)
 
-\[ ] Pay the cost: apply a 1-tick StatusEffect.new("Resonance Replication Cost", 20.0, 1, pillar, true, false) to the pillar's own reactor (value per Q5)
+\[ ] Pay the cost: apply a 1-tick StatusEffect.new("Resonance Replication Cost", 20.0, 1, pillar, true, false) to the pillar's own reactor (per Q5 — 20.0 confirmed)
 
 \[ ] Important: the MeleeEvent has already been emitted and effects applied by the time our handler runs — we're a reaction to a successful melee strike. Not modifying the strike, just echoing its resonance payload from pillar positions. Document this clearly.
 
-\[ ] Edge case: if the caster's melee strike missed (no target), should pillars still fire? The melee\_strike signal fires regardless of whether a target was hit — confirm with status effect agent whether MeleeEvent contains hit/miss info, and decide if pillar-echo requires a landed hit. (User said "when the caster lands a melee attack" — implies hit required.)
+\[ ] Gating on landed hits (per Q5): the pillar-echo only fires when the caster's melee strike actually connects. Inspect MeleeEvent to determine landed-vs-whiff — if MeleeEvent doesn't already expose this, coordinate with the status effect agent to add the minimum needed (e.g. event.target != null after resolution, or a bool flag). Do NOT echo on whiffs.
 
 
 
@@ -326,7 +326,7 @@ Agent: Ability Agent
 
 &#x20; ◦ User param: caster (so caster is still self-excluded and attribution flows correctly; other pillars excluded per Q2)
 
-&#x20; ◦ Effect factory: KnockbackEffect.new(pillar) OR KnockbackEffect.new(caster) — pending Q6
+&#x20; ◦ Effect factory: KnockbackEffect.new(pillar) (per Q6 — pillar is source for both push-direction and kill attribution)
 
 \[ ] Pay the cost: apply the same "Repulse Cost" 18.0 heat 1-tick effect to the pillar's own reactor (reuse the exact construction KnockbackAbility.create\_self\_effects uses)
 
@@ -370,7 +370,7 @@ Agent: Ability Agent (wiring) + Status Effect Agent (CounterHitEffect behavior v
 
 &#x20; ◦ The pillar's CounterHitEffect will then record any effects applied to the pillar's reactor for 10 ticks and broadcast them to characters within 10m of the pillar on expiry — exactly the behavior we want, for free
 
-\[ ] Pay the cost: apply counter-hit cost effect to pillar's reactor (per Q4 — either the new cost we add, or skip if we decide counter-hit stays free)
+\[ ] No separate cost needed (per Q4): CounterHitEffect itself contributes 10 heat/tick × 10 ticks = 100 total heat. At pillar max_heat = 100 (Q3), Counter-Hit replication will typically breach the pillar at or near effect expiry. This is the intended cost model — do NOT try to reduce CounterHitEffect's heat or add cooling to "save" the pillar. Pillars genuinely spend themselves to replicate Counter-Hit.
 
 \[ ] Caster's own counter-hit still fires normally on self (additive)
 
@@ -382,7 +382,7 @@ Agent: Status Effect Agent (+ Ability Agent coordination)
 
 
 
-\[ ] Per Q2 resolution (probably Option A): pillars join "characters" group with is\_pillar = true marker
+\[ ] Per Q2 (Option A): pillars join "characters" group with is\_pillar = true marker
 
 \[ ] Update AoeAbility.\_deliver\_aoe\_at to NOT skip pillars (currently it just scans "characters"; pillars being in that group means they get hit naturally — good)
 
@@ -428,7 +428,7 @@ Agent: Ability Agent
 
 \[ ] On caster loadout swap: Loadout.deactivate\_all(user) already calls force\_deactivate on every ability. Ensure ResonancePillarAbility.force\_deactivate frees all owned pillars (per Q1 decision).
 
-\[ ] On caster death: CharacterBase.die() path flows into loadout deactivation — verify pillars are freed if Q1 says so.
+\[ ] On caster death (per Q1 — pillars despawn): CharacterBase.die() path flows into loadout deactivation → ResonancePillarAbility.force\_deactivate → pillars freed. Verify the chain actually fires end-to-end.
 
 \[ ] On pillar self-overheat-breach: break\_on\_breach\_deletes\_host frees the pillar node; its \_exit\_tree() disconnects signals cleanly. Verify no dangling WeakRef issues in the ability's pillar-list.
 
