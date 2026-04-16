@@ -286,7 +286,7 @@ Agent: Ability Agent (logic) + Status Effect Agent (cost effect creation)
 
 
 
-\[ ] When caster's melee\_strike fires AND \_slot1\_active is true:
+\[x] When caster's melee\_strike fires AND \_slot1\_active is true:
 
 &#x20; ◦ Use the new \_deliver\_aoe\_at(pillar.global\_position, caster, 10.0, create\_resonant\_punch\_effect\_factory) helper (or call an equivalent from AoeAbility as a static/utility)
 
@@ -294,11 +294,11 @@ Agent: Ability Agent (logic) + Status Effect Agent (cost effect creation)
 
 &#x20; ◦ Apply ResonantPunchEffect.new(caster) to each valid target's reactor (source = caster, so escalation-on-refresh still attributes to caster)
 
-\[ ] Pay the cost: apply a 1-tick StatusEffect.new("Resonance Replication Cost", 20.0, 1, pillar, true, false) to the pillar's own reactor (per Q5 — 20.0 confirmed)
+\[x] Pay the cost: apply a 1-tick StatusEffect.new("Resonance Replication Cost", 20.0, 1, pillar, true, false) to the pillar's own reactor (per Q5 — 20.0 confirmed)
 
-\[ ] Important: the MeleeEvent has already been emitted and effects applied by the time our handler runs — we're a reaction to a successful melee strike. Not modifying the strike, just echoing its resonance payload from pillar positions. Document this clearly.
+\[x] Important: the MeleeEvent has already been emitted and effects applied by the time our handler runs — we're a reaction to a successful melee strike. Not modifying the strike, just echoing its resonance payload from pillar positions. Document this clearly.
 
-\[ ] Gating on landed hits (per Q5): the pillar-echo only fires when the caster's melee strike actually connects. Inspect MeleeEvent to determine landed-vs-whiff — if MeleeEvent doesn't already expose this, coordinate with the status effect agent to add the minimum needed (e.g. event.target != null after resolution, or a bool flag). Do NOT echo on whiffs.
+\[x] Gating on landed hits (per Q5): the pillar-echo only fires when the caster's melee strike actually connects. Inspect MeleeEvent to determine landed-vs-whiff — if MeleeEvent doesn't already expose this, coordinate with the status effect agent to add the minimum needed (e.g. event.target != null after resolution, or a bool flag). Do NOT echo on whiffs.
 
 
 

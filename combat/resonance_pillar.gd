@@ -234,15 +234,119 @@ func _on_slot1_deactivated(_user: Node) -> void:
 	_slot1_active = false
 
 
-## Handler: the caster's [signal CharacterBase.melee_strike] fired.
-## Phase 3.1 stub — signal wiring is live and the liveness + Slot 1 gate
-## is in place, but the actual resonance echo (AoE delivery from the
-## pillar's position and the 20.0-heat replication cost on the pillar's
-## own reactor, gated on landed-vs-whiff) is Phase 3.2 territory. For
-## now this function is intentionally a no-op past the gates.
+## Handler: the caster's [signal CharacterBase.melee_strike] fired —
+## echo the Slot 1 Resonance payload from this pillar's position.
+##
+## [b]Reaction, not modification.[/b] [CharacterBase] emits
+## [signal melee_strike] mid-strike with a fully-populated [MeleeEvent];
+## by the time we run, prior listeners (e.g. [MeleeModifierEffect]s) have
+## had their chance to mutate the event, and the character's own strike
+## resolution is already committed to applying [member MeleeEvent.effects]
+## to [member MeleeEvent.target]. This handler does NOT touch the event
+## — it only fires a secondary resonance AoE burst from the pillar's own
+## position so the pillar appears to "echo" the caster's resonance reach.
+##
+## [b]Landed-hit gate (per resonance_pillar.md Q5).[/b] Inspecting
+## [code]character_base.gd[/code] lines ~396-413, [signal melee_strike]
+## is only emitted after [code]_find_melee_target[/code] returns a
+## non-null target, so [code]event.target == null[/code] is effectively
+## impossible at signal time — we still defensively check it. The more
+## meaningful gate is [member MeleeEvent.cancelled]: a prior listener
+## (e.g. a [MeleeModifierEffect]) may have aborted the strike, and if
+## the caster's strike is cancelled the pillar's echo must skip too.
+## [b]No new[/b] [MeleeEvent] [b]field is needed[/b] — the existing
+## cancelled / target semantics already satisfy "landed hit".
+##
+## [b]Scan shape.[/b] The loop below mirrors [code]AoeAbility._deliver_aoe_at[/code]
+## intentionally (get_tree → "characters" group → self-skip → _dead skip
+## → horizontal-range skip → get_reactor → apply_effect) so a future
+## reader can diff the two side-by-side. The one deliberate divergence
+## is the [member is_pillar] skip: this is the first scan in the
+## codebase that explicitly filters pillars out of "characters", and
+## without it multiple deployed pillars would resonance-chain each
+## other infinitely via their own reactors.
+##
+## [b]Cost semantics.[/b] The 20.0-heat replication cost is applied to
+## the pillar's OWN reactor (attribution = self, i.e. the pillar), not
+## the caster's — the pillar is the one emitting, so it's the one that
+## pays. [code]is_stackable=true[/code] so multiple strikes landing in
+## the same tick don't collapse into a single cost entry;
+## [code]is_refreshable=false[/code] matches the convention used by
+## [code]KnockbackAbility.create_self_effects[/code] for 1-tick cost
+## effects. The cost fires regardless of hit count — even if the AoE
+## scan finds zero valid targets (e.g. only the caster was in range and
+## got self-skipped), the pillar still "resonated" and still pays.
+## This matches the caster's own Resonance pattern, where activation-
+## cost effects fire on toggle regardless of who happens to be nearby.
+##
+## [b]Order of operations.[/b] AoE delivery happens BEFORE the cost is
+## applied, so if this single strike pushes the pillar over
+## [member ReactorCore.max_heat] on the same tick (triggering the
+## [member ReactorCore.break_on_breach_deletes_host] instant-deletion
+## path), the echo has already been dispatched to targets before the
+## pillar vanishes.
 func _on_caster_melee_strike(event: MeleeEvent) -> void:
 	if not is_instance_valid(caster):
 		return
 	if not _slot1_active:
 		return
-	# TODO — Phase 3.2: deliver AoE at pillar.global_position, pay 20.0 heat cost, gate on landed hit
+	# Landed-hit gate (Q5): skip whiffs and listener-cancelled strikes.
+	# target == null is defensive — character_base.gd only emits
+	# melee_strike after a non-null target has been resolved — but a
+	# prior MeleeModifierEffect may have set cancelled = true, in which
+	# case the echo must skip too. No new MeleeEvent field is required;
+	# the existing semantics already satisfy "landed hit".
+	if event.cancelled or event.target == null:
+		return
+
+	# -- AoE delivery at the pillar's position ----------------------------
+	# Inlined copy of AoeAbility._deliver_aoe_at's scan+apply loop with
+	# one deliberate addition: the is_pillar skip, which prevents pillars
+	# from resonance-chaining each other when multiple are deployed.
+	# Radius = 10.0 m horizontal (Resonance's canonical reach). Origin =
+	# this pillar's global position. Effects are attributed to the
+	# caster (source = caster) so escalation-on-refresh and kill credit
+	# flow back to them, matching the caster's own Resonance punches.
+	var aoe_radius := 10.0
+	var origin := global_position
+	var tree := get_tree()
+	if tree:
+		for node in tree.get_nodes_in_group("characters"):
+			if node == caster:
+				continue
+			var body := node as Node3D
+			if not body:
+				continue
+			if body.get("_dead"):
+				continue
+			# Pillar→pillar cascade guard — see doc-comment above. This
+			# is the one divergence from AoeAbility._deliver_aoe_at.
+			if body.get("is_pillar"):
+				continue
+
+			# Horizontal range check (Y-ignored, matches AoeAbility).
+			var offset := body.global_position - origin
+			offset.y = 0.0
+			var dist := offset.length()
+			if dist > aoe_radius or dist < 0.01:
+				continue
+
+			# Fetch target's reactor via the duck-typed accessor.
+			var reactor: Node = body.get_reactor() if body.has_method("get_reactor") else null
+			if not reactor:
+				continue
+
+			# Fresh effect per target — each instance is independent.
+			# Source = caster so escalation-on-refresh still attributes
+			# back to the caster and merges with their own Resonance
+			# stacks rather than forking a pillar-sourced lineage.
+			reactor.apply_effect(ResonantPunchEffect.new(caster))
+
+	# -- Pay the replication cost (Q5) ------------------------------------
+	# 20.0 heat, 1-tick, applied to THIS pillar's reactor. Source = self
+	# so attribution for the self-heat is the pillar, not the caster.
+	# is_stackable = true so multiple strikes in the same tick don't
+	# collapse; is_refreshable = false mirrors KnockbackAbility's 1-tick
+	# cost-effect convention. Fired unconditionally — even if the AoE
+	# above found zero valid targets, the pillar still resonated.
+	_reactor.apply_effect(StatusEffect.new("Resonance Replication Cost", 20.0, 1, self, true, false))
