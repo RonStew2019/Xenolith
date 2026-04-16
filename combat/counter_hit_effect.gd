@@ -57,7 +57,7 @@ func on_remove(reactor: Node) -> void:
 	_reactor = null
 
 	# 2. Caster == target for a self-applied Counter-Hit.  Use
-	#    reactor.get_parent() to stay aligned with AoeCasterAbility.
+	#    reactor.get_parent() to stay aligned with AoeAbility.
 	var caster := reactor.get_parent()
 	if not caster:
 		_recorded.clear()
@@ -77,7 +77,7 @@ func on_remove(reactor: Node) -> void:
 		if body.get("_dead"):
 			continue
 
-		# Horizontal range check (mirrors AoeCasterAbility._deliver_aoe).
+		# Horizontal range check (mirrors AoeAbility._deliver_aoe_at).
 		var offset := body.global_position - origin
 		offset.y = 0.0
 		var dist := offset.length()

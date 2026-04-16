@@ -72,21 +72,21 @@ Agent: Ability Agent
 
 
 
-\[ ] Rename combat/aoe\_caster\_ability.gd → combat/aoe\_ability.gd (class AoeAbility)
+\[x] Rename combat/aoe\_caster\_ability.gd → combat/aoe\_ability.gd (class AoeAbility)
 
-\[ ] Refactor \_deliver\_aoe(user) → \_deliver\_aoe\_at(origin: Vector3, user: Node) where:
+\[x] Refactor \_deliver\_aoe(user) → \_deliver\_aoe\_at(origin: Vector3, user: Node) where:
 
 &#x20; ◦ origin is the spatial center of the burst (horizontal range check uses this)
 
 &#x20; ◦ user is the caster (kept for self-exclusion via if node == user, attribution, and create\_other\_effects(user))
 
-\[ ] Add a thin wrapper \_deliver\_aoe(user) → \_deliver\_aoe\_at(user.global\_position, user) so existing subclasses keep working without modification
+\[x] Add a thin wrapper \_deliver\_aoe(user) → \_deliver\_aoe\_at(user.global\_position, user) so existing subclasses keep working without modification
 
-\[ ] Update KnockbackAbility (and any other subclasses) to continue extending AoeAbility — no behavior change
+\[x] Update KnockbackAbility (and any other subclasses) to continue extending AoeAbility — no behavior change
 
-\[ ] Update doc-comments to reflect the new generalized pattern
+\[x] Update doc-comments to reflect the new generalized pattern
 
-\[ ] Verify: Knockback, Counter-Hit AoE, and any other existing AoE ability still behave identically in-game
+\[x] Verify: Knockback, Counter-Hit AoE, and any other existing AoE ability still behave identically in-game
 
 
 

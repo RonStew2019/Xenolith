@@ -1,14 +1,29 @@
 extends "res://combat/ability.gd"
-class_name AoeCasterAbility
-## Reusable base for abilities that deliver effects in an area around the
-## caster.  Handles the full AOE pipeline: scan the "characters" group,
-## skip self / dead / out-of-range, fetch each target's [ReactorCore],
-## and apply fresh [StatusEffect] instances from [method create_other_effects].
+class_name AoeAbility
+## Reusable base for abilities that deliver effects to every valid character
+## inside a horizontal radius around an arbitrary spatial origin.
+##
+## Historically this was [code]AoeCasterAbility[/code] and always burst from
+## the caster's own position. It has since been generalised: the delivery
+## core is [method _deliver_aoe_at], which takes an explicit [code]origin[/code]
+## so non-caster entities (e.g. resonance pillars, turrets, zones) can reuse
+## the same scan+apply pipeline from their own positions while still
+## attributing effects back to a [code]user[/code] Node.
+##
+## Handles the full AOE pipeline: scan the "characters" group, skip
+## [code]user[/code] / dead / out-of-range, fetch each target's
+## [ReactorCore], and apply fresh [StatusEffect] instances from
+## [method create_other_effects].
 ##
 ## Subclasses only need to:
 ##   1. Set [member aoe_radius] (metres, horizontal).
 ##   2. Override [method create_other_effects] to return the effects each
 ##      target should receive.
+##
+## The default [method activate] override bursts from the caster
+## ([code]user.global_position[/code]) via the [method _deliver_aoe] wrapper.
+## Subclasses (or external callers such as a pillar replicating this
+## ability) may call [method _deliver_aoe_at] directly with any origin.
 ##
 ## Self-effects ([method create_self_effects]) are handled normally by the
 ## parent [Ability] pipeline — they apply to the caster's own reactor.
@@ -21,7 +36,7 @@ class_name AoeCasterAbility
 ##
 ## Effects returned by [method create_other_effects] receive [code]user[/code]
 ## as the [code]source[/code] argument, so directional effects (e.g.
-## [KnockbackEffect]) can compute push vectors from caster → target in
+## [KnockbackEffect]) can compute push vectors from origin → target in
 ## their [method StatusEffect.on_apply].
 
 ## Horizontal radius (metres) of the area-of-effect burst.
@@ -44,13 +59,23 @@ func activate(user: Node) -> void:
 
 # -- Internals -------------------------------------------------------------
 
-## Scan for targets and apply other-effects to each valid one.
+## Caster-centred delivery. Thin wrapper around [method _deliver_aoe_at]
+## that uses the caster's own position as the burst origin. Preserved so
+## existing subclasses (KnockbackAbility, etc.) keep working unchanged.
 func _deliver_aoe(user: Node) -> void:
+	_deliver_aoe_at(user.global_position, user)
+
+
+## Scan for targets around [code]origin[/code] and apply other-effects to
+## each valid one. [code]user[/code] is the attribution / self-exclusion
+## anchor — it is passed to [method create_other_effects] and also used to
+## skip the caster from the target list even when bursting from a remote
+## origin (e.g. a pillar replicating an ability on behalf of its caster).
+func _deliver_aoe_at(origin: Vector3, user: Node) -> void:
 	var tree := user.get_tree()
 	if not tree:
 		return
 
-	var origin: Vector3 = user.global_position
 	for node in tree.get_nodes_in_group("characters"):
 		if node == user:
 			continue

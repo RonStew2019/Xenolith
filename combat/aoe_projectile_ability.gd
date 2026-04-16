@@ -14,7 +14,7 @@ class_name AoeProjectileAbility
 ##
 ## Effects returned by [method create_other_effects] are wrapped in a
 ## factory [Callable] so the [AoeProjectile] can create fresh, independent
-## instances per target — the same pattern [AoeCasterAbility] uses.
+## instances per target — the same pattern [AoeAbility] uses.
 
 ## Horizontal blast radius (metres) passed to the spawned [AoeProjectile].
 var explosion_radius: float = 6.0
@@ -33,7 +33,7 @@ func _fire_projectile(user: Node) -> void:
 	var direction := _get_aim_direction(user)
 
 	# Capture a factory callable so the AoeProjectile can create fresh
-	# effect instances per target (same pattern as AoeCasterAbility).
+	# effect instances per target (same pattern as AoeAbility).
 	var factory := func() -> Array: return create_other_effects(user)
 
 	var proj := AoeProjectile.new()

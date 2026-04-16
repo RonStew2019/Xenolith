@@ -10,7 +10,7 @@ class_name AoeProjectile
 ## the firer and dead targets, then applies a fresh set of effects to each
 ## valid target's [ReactorCore].
 ##
-## Exclusion rules (same as [AoeCasterAbility]):
+## Exclusion rules (same as [AoeAbility]):
 ##   • Skips the user who fired it (no self-hits).
 ##   • Skips dead targets ([code]_dead == true[/code]).
 ##   • Horizontal-only range check.
@@ -145,7 +145,7 @@ func _detonate() -> void:
 			if body.get("_dead"):
 				continue
 
-			# Horizontal range check (same as AoeCasterAbility).
+			# Horizontal range check (same as AoeAbility).
 			var offset := body.global_position - origin
 			offset.y = 0.0
 			if offset.length() > _explosion_radius:
