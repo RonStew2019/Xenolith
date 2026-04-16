@@ -55,16 +55,26 @@ var _dead: bool = false
 ## (Q2 Option A in resonance_pillar.md).
 var is_pillar: bool = true
 
-# TODO — Phase 3.1 ("Pillar subscription wiring"): cached references to
-# the caster's Slot 1 / Slot 2 / Slot 3 abilities will live here once
-# signal subscriptions are wired. Expected fields:
-#   var _slot1_ability: Ability = null   # Resonance — activated/deactivated
+## Cached reference to the caster's Slot 1 ability ("ability_1"),
+## subscribed in [method _ready] so the pillar can mirror its active
+## state. Left null when the caster has no Slot 1 binding at spawn
+## time — subscription is then skipped gracefully and the pillar still
+## functions as an inert reactor-host.
+var _slot1_ability: Ability = null
+
+## Mirror of [code]_slot1_ability.is_active()[/code], driven by the
+## [signal Ability.activated] / [signal Ability.deactivated] signals
+## so [method _on_caster_melee_strike] (Phase 3.2 body) can gate
+## without polling the ability each hit. Seeded from
+## [method Ability.is_active] at subscription time so a pillar spawned
+## while the Slot 1 toggle is already ON starts out with this true.
+var _slot1_active: bool = false
+
+# TODO — Phase 4.1 / 5.1: cached references to the caster's Slot 2 and
+# Slot 3 abilities will live here when their subscriptions are wired.
+# Expected fields:
 #   var _slot2_ability: Ability = null   # — activated
 #   var _slot3_ability: Ability = null   # — activated
-#   var _slot1_active: bool = false      # mirror of slot1.is_active(),
-#                                        # driven by the activated/deactivated
-#                                        # signals so the melee-strike handler
-#                                        # can gate without polling.
 
 
 func _ready() -> void:
@@ -126,23 +136,35 @@ func _ready() -> void:
 	mesh_inst.position.y = cyl.height * 0.5
 	add_child(mesh_inst)
 
-	# -- Caster ability subscriptions --------------------------------------
-	# TODO — Phase 3.1 ("Pillar subscription wiring"): after the reactor
-	# is up and the pillar is in the tree, look up the caster's loadout
-	# slots and connect:
-	#   _slot1_ability = caster._loadout.get_ability_for_action("ability_1")
-	#   _slot2_ability = caster._loadout.get_ability_for_action("ability_2")
-	#   _slot3_ability = caster._loadout.get_ability_for_action("ability_3")
-	#   _slot1_ability.activated.connect(_on_slot1_activated)
-	#   _slot1_ability.deactivated.connect(_on_slot1_deactivated)
-	#   _slot2_ability.activated.connect(_on_slot2_activated)
-	#   _slot3_ability.activated.connect(_on_slot3_activated)
-	#   caster.melee_strike.connect(_on_caster_melee_strike)
-	# Seed _slot1_active from _slot1_ability.is_active() at subscription
-	# time so the "Slot 1 toggle was already on when the pillar spawned"
-	# case works. Every handler MUST begin with
-	#   if not is_instance_valid(caster): return
-	# (see class doc-comment).
+	# -- Caster ability subscriptions (Phase 3.1) -------------------------
+	# Mirror the caster's Slot 1 toggle state and listen for their melee
+	# strikes so Phase 3.2 can echo the resonance payload from the pillar's
+	# own position. Each hop is guarded so a caster without a _loadout, a
+	# missing Slot 1 binding, or a missing melee_strike signal produces a
+	# push_warning and a graceful skip — the pillar still functions as an
+	# inert reactor-host in those degenerate cases.
+	if not is_instance_valid(caster):
+		push_warning("ResonancePillar: caster is null at _ready; skipping ability subscriptions.")
+		return
+	var loadout = caster.get("_loadout")
+	if loadout == null:
+		push_warning("ResonancePillar: caster has no _loadout; skipping Slot 1 subscription.")
+	else:
+		_slot1_ability = loadout.get_ability_for_action("ability_1")
+		if _slot1_ability == null:
+			push_warning("ResonancePillar: caster has no ability bound to \"ability_1\"; skipping Slot 1 subscription.")
+		else:
+			# Seed from the ability's live state BEFORE connecting so the
+			# "toggle was already ON when the pillar spawned" case works
+			# — there will be no activated signal for the already-active
+			# state, so we have to read it directly.
+			_slot1_active = _slot1_ability.is_active()
+			_slot1_ability.activated.connect(_on_slot1_activated)
+			_slot1_ability.deactivated.connect(_on_slot1_deactivated)
+	if caster.has_signal("melee_strike"):
+		caster.melee_strike.connect(_on_caster_melee_strike)
+	else:
+		push_warning("ResonancePillar: caster has no melee_strike signal; skipping strike subscription.")
 
 
 ## Duck-typed reactor accessor. Mirrors the contract that
@@ -175,18 +197,52 @@ func _exit_tree() -> void:
 	if not is_instance_valid(caster):
 		return
 
-	# TODO — Phase 3.1 ("Pillar subscription teardown"): disconnect the
-	# four connections established in _ready, each guarded by
-	# is_connected so repeat teardowns stay safe:
-	#   if _slot1_ability and _slot1_ability.activated.is_connected(_on_slot1_activated):
-	#       _slot1_ability.activated.disconnect(_on_slot1_activated)
-	#   if _slot1_ability and _slot1_ability.deactivated.is_connected(_on_slot1_deactivated):
-	#       _slot1_ability.deactivated.disconnect(_on_slot1_deactivated)
-	#   if _slot2_ability and _slot2_ability.activated.is_connected(_on_slot2_activated):
-	#       _slot2_ability.activated.disconnect(_on_slot2_activated)
-	#   if _slot3_ability and _slot3_ability.activated.is_connected(_on_slot3_activated):
-	#       _slot3_ability.activated.disconnect(_on_slot3_activated)
-	#   if caster.melee_strike.is_connected(_on_caster_melee_strike):
-	#       caster.melee_strike.disconnect(_on_caster_melee_strike)
-	# Phase 3.1 owns the signal wiring; nothing to disconnect yet.
-	pass
+	# Disconnect the three Slot 1 / melee-strike subscriptions established
+	# in _ready. Each hop is guarded by is_connected so a double teardown
+	# (e.g. _exit_tree firing after force_deactivate-driven cleanup) stays
+	# a safe no-op. The _slot1_ability truthy check also handles the
+	# "caster had no Slot 1 binding at spawn" case — subscription was
+	# skipped in _ready, so there is nothing to disconnect here either.
+	if _slot1_ability and _slot1_ability.activated.is_connected(_on_slot1_activated):
+		_slot1_ability.activated.disconnect(_on_slot1_activated)
+	if _slot1_ability and _slot1_ability.deactivated.is_connected(_on_slot1_deactivated):
+		_slot1_ability.deactivated.disconnect(_on_slot1_deactivated)
+	if caster.has_signal("melee_strike") and caster.melee_strike.is_connected(_on_caster_melee_strike):
+		caster.melee_strike.disconnect(_on_caster_melee_strike)
+	# NOTE — Phase 4.1 / 5.1: when Slot 2 and Slot 3 subscriptions land,
+	# add matching is_connected-guarded disconnects here for their
+	# activated signals (deactivated is not needed for those slots — see
+	# their phase notes in resonance_pillar.md).
+
+
+## Handler: caster's Slot 1 ability just transitioned to active.
+## Flips the local [member _slot1_active] mirror so the Phase 3.2 body of
+## [method _on_caster_melee_strike] can cheaply gate on the toggle
+## without polling [method Ability.is_active] on every strike.
+func _on_slot1_activated(_user: Node) -> void:
+	if not is_instance_valid(caster):
+		return
+	_slot1_active = true
+
+
+## Handler: caster's Slot 1 ability just transitioned to inactive.
+## Flips [member _slot1_active] off so subsequent melee strikes stop
+## echoing resonance from this pillar's position.
+func _on_slot1_deactivated(_user: Node) -> void:
+	if not is_instance_valid(caster):
+		return
+	_slot1_active = false
+
+
+## Handler: the caster's [signal CharacterBase.melee_strike] fired.
+## Phase 3.1 stub — signal wiring is live and the liveness + Slot 1 gate
+## is in place, but the actual resonance echo (AoE delivery from the
+## pillar's position and the 20.0-heat replication cost on the pillar's
+## own reactor, gated on landed-vs-whiff) is Phase 3.2 territory. For
+## now this function is intentionally a no-op past the gates.
+func _on_caster_melee_strike(event: MeleeEvent) -> void:
+	if not is_instance_valid(caster):
+		return
+	if not _slot1_active:
+		return
+	# TODO — Phase 3.2: deliver AoE at pillar.global_position, pay 20.0 heat cost, gate on landed hit

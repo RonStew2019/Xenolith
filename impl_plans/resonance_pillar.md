@@ -266,7 +266,7 @@ Agent: Ability Agent
 
 
 
-\[ ] In ResonancePillar.\_ready(), after caster is set:
+\[x] In ResonancePillar.\_ready(), after caster is set:
 
 &#x20; ◦ Look up caster's Slot 1 ability via caster.\_loadout.get\_ability\_for\_action("ability\_1")
 
@@ -276,7 +276,7 @@ Agent: Ability Agent
 
 &#x20; ◦ Connect to caster.melee\_strike signal
 
-\[ ] In \_exit\_tree(): disconnect all three connections with is\_connected guards
+\[x] In \_exit\_tree(): disconnect all three connections with is\_connected guards
 
 
 
