@@ -19,6 +19,36 @@ class_name Ability
 ##
 ## The controller calls [method activate] on press and [method deactivate]
 ## on release for every ability.  The mode decides what actually happens.
+##
+## [b]Lifecycle signals[/b] -- [signal activated] and [signal deactivated]
+## fire on genuine state transitions only, so external listeners (e.g. the
+## ResonancePillar mirroring Slot 1/2/3 behaviour) can track active state
+## without bookkeeping of their own.  The contract per mode is:
+##
+##   INSTANT -- [signal activated] fires every successful press.
+##              [signal deactivated] never fires (there is no "off" state).
+##   TOGGLE  -- [signal activated] fires on the false -> true press.
+##              [signal deactivated] fires on the true -> false second press
+##              (dispatched from inside [method activate]).
+##   HOLD    -- [signal activated] fires on the false -> true press.
+##              Repeat presses while already active are idempotent and emit
+##              nothing.  [signal deactivated] fires on release via
+##              [method deactivate] only when [member _active] actually
+##              transitions true -> false.
+##
+## [method force_deactivate] emits [signal deactivated] iff the ability was
+## active at call time; calling it on an inactive ability is a silent no-op.
+## If [method activate] cannot resolve the user's reactor it bails before
+## any state change and emits nothing.
+
+## Emitted whenever the ability genuinely transitions to active (or fires,
+## for INSTANT).  Never emitted on idempotent re-presses.
+signal activated(user: Node)
+
+## Emitted whenever the ability genuinely transitions from active to
+## inactive (TOGGLE second-press, HOLD release, or [method force_deactivate]
+## on a previously-active ability).  Never emitted for INSTANT abilities.
+signal deactivated(user: Node)
 
 enum ActivationMode {
 	INSTANT,  ## Fire once, no persistent state (projectiles, one-shot buffs).
@@ -62,17 +92,21 @@ func activate(user: Node) -> void:
 	match activation_mode:
 		ActivationMode.INSTANT:
 			_apply_effects(user, reactor)
+			activated.emit(user)
 		ActivationMode.TOGGLE:
 			if _active:
 				_remove_effects(reactor)
 				_active = false
+				deactivated.emit(user)
 			else:
 				_apply_effects(user, reactor)
 				_active = true
+				activated.emit(user)
 		ActivationMode.HOLD:
 			if not _active:
 				_apply_effects(user, reactor)
 				_active = true
+				activated.emit(user)
 
 
 ## Called when the bound input is released.
@@ -84,6 +118,7 @@ func deactivate(user: Node) -> void:
 	if reactor:
 		_remove_effects(reactor)
 	_active = false
+	deactivated.emit(user)
 
 
 ## Force-remove applied effects regardless of mode (death, loadout swap).
@@ -95,6 +130,7 @@ func force_deactivate(user: Node) -> void:
 		_remove_effects(reactor)
 	_applied_effects.clear()
 	_active = false
+	deactivated.emit(user)
 
 
 func is_active() -> bool:

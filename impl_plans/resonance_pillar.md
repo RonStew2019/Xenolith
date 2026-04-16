@@ -96,7 +96,7 @@ Agent: Ability Agent
 
 
 
-\[ ] Add two signals to combat/ability.gd:
+\[x] Add two signals to combat/ability.gd:
 
 &#x20;gdscript ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ signal deactivated(user: Node)  # emitted on TOGGLE second-press, HOLD release, 
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-\[ ] Emit activated from activate():
+\[x] Emit activated from activate():
 
 &#x20; ◦ INSTANT: always emit
 
@@ -114,13 +114,13 @@ signal deactivated(user: Node)  # emitted on TOGGLE second-press, HOLD release, 
 
 &#x20; ◦ HOLD: emit only on transition false → true
 
-\[ ] Emit deactivated from deactivate() (HOLD release path only where \_active goes true→false) and from force\_deactivate() (only when it actually deactivates a previously-active ability)
+\[x] Emit deactivated from deactivate() (HOLD release path only where \_active goes true→false) and from force\_deactivate() (only when it actually deactivates a previously-active ability)
 
-\[ ] For TOGGLE abilities, the second-press deactivation path inside activate() must also emit deactivated
+\[x] For TOGGLE abilities, the second-press deactivation path inside activate() must also emit deactivated
 
-\[ ] Confirm no existing listeners break (there shouldn't be any — signals are new)
+\[x] Confirm no existing listeners break (there shouldn't be any — signals are new)
 
-\[ ] Document the signal contract in the class doc-comment
+\[x] Document the signal contract in the class doc-comment
 
 
 
