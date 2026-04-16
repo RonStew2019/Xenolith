@@ -148,9 +148,9 @@ Agent: Status Effect Agent (+ light Ability Agent coordination)
 
 
 
-\[ ] Current code paths that reach into a target assume CharacterBase-style interface: .get\_reactor(), \_dead property, global\_position, "characters" group membership. Document the minimum interface a reactor-hosting node must provide.
+\[x] Current code paths that reach into a target assume CharacterBase-style interface: .get\_reactor(), \_dead property, global\_position, "characters" group membership. Document the minimum interface a reactor-hosting node must provide.
 
-\[ ] Make sure ReactorCore.apply\_effect does not require the parent to be a CharacterBody3D or have a velocity field (currently KnockbackEffect assumes this — but Knockback shouldn't target pillars anyway; see Phase 5.2)
+\[x] Make sure ReactorCore.apply\_effect does not require the parent to be a CharacterBody3D or have a velocity field (currently KnockbackEffect assumes this — but Knockback shouldn't target pillars anyway; see Phase 5.2)
 
 \[ ] Add a get\_reactor() method to whatever pillar class ends up hosting a reactor so apply\_effect-via-reactor-lookup code (e.g. AoeAbility.\_deliver\_aoe\_at) works uniformly
 

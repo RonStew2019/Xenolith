@@ -1,14 +1,66 @@
 extends Node
 class_name ReactorCore
-## Manages a mech's reactor: structural integrity and heat accumulation.
+## Manages a reactor: structural integrity and heat accumulation.
 ##
-## Attach as a child of any character node.  Connects to the global
-## [CombatTickClock] autoload for synchronized tick processing.
+## Attach as a child of any host node that wants to participate in the
+## combat pipeline -- characters, resonance pillars, turrets, destructible
+## props.  Connects to the global [CombatTickClock] autoload for
+## synchronized tick processing.
 ##
 ## Each tick, heat increases by the sum of every active effect's weight.
 ## Heat is allowed to exceed [member max_heat].  Every tick that it stays
 ## above max, the excess is subtracted from integrity (sustained breach).
 ## Damage stops once cooling brings heat back below max.
+##
+## ── Reactor host interface contract ──────────────────────────────────────
+##
+## ReactorCore itself is parent-type-agnostic: it never touches
+## [CharacterBody3D]-specific members (no [code]velocity[/code], no
+## [code]movement_lock_count[/code]).  The only parent-dependent code paths
+## are [method _fragile_break] ([code]host.queue_free()[/code] -- any Node
+## suffices) and [method _spawn_damage_number] (guards [code]is Node3D[/code]
+## and silently skips otherwise).
+##
+## However, the BROADER combat pipeline (AoE scans, projectile hits, melee
+## targeting, counter-hit broadcasts, AI target selection) reaches into
+## reactor-hosting nodes through a small conventional interface.  To be a
+## first-class target / participant, a host node must provide:
+##
+## [b]Required[/b]
+##   • Extends [Node3D] -- for [code]global_position[/code] spatial queries.
+##   • [code]get_reactor() -> ReactorCore[/code] -- reactor lookup.  Callers:
+##     [Ability._get_reactor], [AoeAbility._deliver_aoe_at],
+##     [AoeProjectile._detonate], [Projectile._on_body_entered],
+##     [CounterHitEffect.on_remove], [CharacterBase.execute_melee],
+##     [StatTransferOnDeathEffect._find_reactor].
+##   • [code]_dead: bool[/code] property -- liveness gate.  Scanners read it
+##     via [code]node.get("_dead")[/code], so a MISSING property reads as
+##     null / falsy and the host appears "alive forever".  Hosts that can
+##     die MUST expose this flag and set it true before being freed (or be
+##     removed from the [code]"characters"[/code] group first).  Readers:
+##     [AoeAbility], [AoeProjectile], [Projectile], [CounterHitEffect],
+##     [combat_ai._find_nearest_enemy].
+##   • Group membership: [code]"characters"[/code] -- AoE / projectile / AI
+##     scans iterate this group.  Non-character hosts (e.g. resonance
+##     pillars) should still join it and set an [code]is_pillar = true[/code]
+##     marker property so mech-only filters can exclude them (see
+##     resonance_pillar.md Q2 Option A).
+##
+## [b]Optional -- enables extra integrations[/b]
+##   • [code]clone_parent: Node[/code] -- read by [StatTransferOnDeathEffect]
+##     to walk a family tree on death.  Not needed for pillars.
+##   • Custom death handler -- ReactorCore can self-destruct the host on
+##     breach via [member break_on_breach_deletes_host] (runs
+##     [method shutdown] then [method Node.queue_free]s the parent).  Only
+##     override externally if you need a bespoke death transition (see
+##     [CharacterBase.die] for the character variant).
+##
+## [b]Per-effect sub-contracts[/b] -- INDIVIDUAL [StatusEffect] subclasses
+## may require richer host interfaces than the minimum above.  Notably
+## [KnockbackEffect] requires a [CharacterBody3D] host
+## ([code]velocity[/code] + [code]movement_lock_count[/code]).  Such
+## contracts are the caller's responsibility to honour -- don't apply an
+## effect to a host that can't support it.  ReactorCore does not enforce.
 
 # -- Signals ---------------------------------------------------------------
 
