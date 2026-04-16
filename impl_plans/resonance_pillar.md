@@ -130,15 +130,15 @@ Agent: Status Effect Agent
 
 
 
-\[ ] Decide: add a flag break\_on\_breach\_deletes\_host: bool = false to ReactorCore, OR create a FragileReactorCore subclass. Recommendation: a simple boolean flag on the base class, no subclass needed.
+\[x] Decide: add a flag break\_on\_breach\_deletes\_host: bool = false to ReactorCore, OR create a FragileReactorCore subclass. Recommendation: a simple boolean flag on the base class, no subclass needed.
 
-\[ ] When the flag is set and reactor\_breached would fire, the reactor instead calls get\_parent().queue\_free() directly (skipping the normal integrity-damage → death pipeline that presumes a CharacterBase host with die())
+\[x] When the flag is set and reactor\_breached would fire, the reactor instead calls get\_parent().queue\_free() directly (skipping the normal integrity-damage → death pipeline that presumes a CharacterBase host with die())
 
-\[ ] Ensure fragile reactors still register/deregister with CombatTickClock correctly
+\[x] Ensure fragile reactors still register/deregister with CombatTickClock correctly
 
-\[ ] Ensure all existing effect lifecycle (on\_apply/on\_tick/on\_remove) fires normally before deletion
+\[x] Ensure all existing effect lifecycle (on\_apply/on\_tick/on\_remove) fires normally before deletion
 
-\[ ] Verify: a pillar can have this flag set, take a single heat-overflow tick, and vanish cleanly without the node tree complaining about dangling refs
+\[x] Verify: a pillar can have this flag set, take a single heat-overflow tick, and vanish cleanly without the node tree complaining about dangling refs
 
 
 

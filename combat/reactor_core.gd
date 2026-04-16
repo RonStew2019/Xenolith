@@ -49,6 +49,16 @@ signal overheat_ended
 
 @export var enable_ambient_venting: bool = true
 
+## If true, the moment integrity hits zero the reactor bypasses the normal
+## CharacterBase [code]die()[/code] pipeline and instead tears itself down and
+## [method Node.queue_free]s its host node directly.  Used by lightweight
+## reactor-hosting entities (e.g. Resonance Pillars) whose host does not
+## implement [code]CharacterBase[/code].
+##
+## [signal reactor_breached] is still emitted first so VFX / stat-transfer /
+## UI listeners can react; we only skip the external death handler.
+@export var break_on_breach_deletes_host: bool = false
+
 # -- State -----------------------------------------------------------------
 
 var integrity: float = 0.0:
@@ -60,6 +70,12 @@ var integrity: float = 0.0:
 		integrity_changed.emit(integrity, max_integrity)
 		if integrity <= 0.0:
 			reactor_breached.emit()
+			# Fragile reactors (e.g. Resonance Pillars) do not have a
+			# CharacterBase host with a die() handler; free the host directly.
+			# reactor_breached is still emitted above so VFX / stat-transfer
+			# listeners can react before teardown.
+			if break_on_breach_deletes_host and not _is_shutdown:
+				_fragile_break()
 
 var heat: float = 0.0:
 	set(value):
@@ -179,6 +195,22 @@ func shutdown() -> void:
 
 	# 4. Zero heat to prevent lingering overheat signals.
 	heat = 0.0
+
+
+## Fragile-reactor teardown.  Called from the [member integrity] setter when
+## [member break_on_breach_deletes_host] is true and integrity hits zero.
+## Runs the full [method shutdown] sequence (fires [code]on_remove[/code] for
+## every active effect, retires damage numbers, disconnects from the tick
+## clock, zeros heat), then [method Node.queue_free]s the host node.
+##
+## Safe to invoke mid-tick: [method shutdown] is idempotent, and
+## [method Node.queue_free] defers actual destruction to end-of-frame so the
+## currently-executing tick handler completes cleanly.
+func _fragile_break() -> void:
+	shutdown()
+	var host := get_parent()
+	if is_instance_valid(host) and not host.is_queued_for_deletion():
+		host.queue_free()
 
 
 func get_heat_pressure() -> float:
