@@ -234,15 +234,15 @@ Agent: Ability Agent
 
 
 
-\[ ] Create combat/resonance\_pillar\_ability.gd (class ResonancePillarAbility extends ProjectileAbility)
+\[x] Create combat/resonance\_pillar\_ability.gd (class ResonancePillarAbility extends ProjectileAbility)
 
-\[ ] \_init: activation\_mode = INSTANT, projectile\_speed = 25.0, projectile\_lifetime = 4.0, ability\_name = "Resonance Pillar"
+\[x] \_init: activation\_mode = INSTANT, projectile\_speed = 25.0, projectile\_lifetime = 4.0, ability\_name = "Resonance Pillar"
 
-\[ ] create\_self\_effects(user): a "Pillar Cost" 1-tick effect (heat value TBD, suggest 15.0) — uses the existing cost-effect pattern
+\[x] create\_self\_effects(user): a "Pillar Cost" 1-tick effect (heat value TBD, suggest 15.0) — uses the existing cost-effect pattern
 
-\[ ] Override \_fire\_projectile(user) to spawn PersistentProjectile instead of Projectile (since base ProjectileAbility.\_fire\_projectile spawns Projectile with effect payload — we don't want that)
+\[x] Override \_fire\_projectile(user) to spawn PersistentProjectile instead of Projectile (since base ProjectileAbility.\_fire\_projectile spawns Projectile with effect payload — we don't want that)
 
-\[ ] force\_deactivate(user): per Q1, optionally iterate owned pillars and free them on loadout swap / caster death. This is the one place we need pillar tracking on the ability — suggest the ability keeps a WeakRef-backed list of spawned pillars it can iterate for cleanup.
+\[x] force\_deactivate(user): per Q1, optionally iterate owned pillars and free them on loadout swap / caster death. This is the one place we need pillar tracking on the ability — suggest the ability keeps a WeakRef-backed list of spawned pillars it can iterate for cleanup.
 
 
 
