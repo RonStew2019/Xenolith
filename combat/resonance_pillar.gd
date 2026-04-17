@@ -70,10 +70,20 @@ var _slot1_ability: Ability = null
 ## while the Slot 1 toggle is already ON starts out with this true.
 var _slot1_active: bool = false
 
-# TODO — Phase 4.1 / 5.1: cached references to the caster's Slot 2 and
-# Slot 3 abilities will live here when their subscriptions are wired.
-# Expected fields:
-#   var _slot2_ability: Ability = null   # — activated
+## Cached reference to the caster's Slot 2 ability ("ability_2"),
+## subscribed in [method _ready] so the pillar can echo its activation
+## pulse from its own position. Unlike Slot 1, there is no
+## [code]_slot2_active[/code] mirror: Slot 2 (Repulse) is an activation
+## pulse, not a sustained gate, so the subscription is to
+## [signal Ability.activated] only and the whole replication decision
+## lives inside [method _on_slot2_activated]. Left null when the caster
+## has no Slot 2 binding at spawn time — subscription is then skipped
+## gracefully and the pillar still functions as an inert reactor-host.
+var _slot2_ability: Ability = null
+
+# TODO — Phase 5.1: cached reference to the caster's Slot 3 ability
+# will live here when its subscription is wired.
+# Expected field:
 #   var _slot3_ability: Ability = null   # — activated
 
 

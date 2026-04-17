@@ -94,21 +94,21 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -20, 0)
 script = ExtResource("4")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Killbox" unique_id=1970376502]
-transform = Transform3D(2.7, 0, 0, 0, 1, 0, 0, 0, 2.2, 0, 0, 0)
+transform = Transform3D(2.7, 0, 0, 0, 2.7, 0, 0, 0, 2.7, 0, 0, 0)
 shape = SubResource("killbox_shape")
 
 [node name="CollisionShape3D2" type="CollisionShape3D" parent="Killbox" unique_id=1344848616]
-transform = Transform3D(2.7, 0, 0, 0, -4.371139e-08, 2.2, 0, -1, -9.616505e-08, 0, 550, 550)
+transform = Transform3D(2.7, 0, 0, 0, -1.1802075e-07, 2.7, 0, -2.7, -1.1802075e-07, 0, 550, 550)
 shape = SubResource("killbox_shape")
 
 [node name="CollisionShape3D3" type="CollisionShape3D" parent="Killbox" unique_id=291159523]
-transform = Transform3D(-1.1802075e-07, 1, 0, -2.7, -4.371139e-08, 0, 0, 0, 2.2, -677.7, 550, 0)
+transform = Transform3D(-1.1802075e-07, 2.7, 0, -2.7, -1.1802075e-07, 0, 0, 0, 2.7, -677.7, 550, 0)
 shape = SubResource("killbox_shape")
 
 [node name="CollisionShape3D4" type="CollisionShape3D" parent="Killbox" unique_id=564511869]
-transform = Transform3D(2.7, 0, 0, 0, -4.371139e-08, 2.2, 0, -1, -9.616505e-08, 0, 550, -552.2)
+transform = Transform3D(2.7, 0, 0, 0, -1.1802075e-07, 2.7, 0, -2.7, -1.1802075e-07, 0, 550, -552.2)
 shape = SubResource("killbox_shape")
 
 [node name="CollisionShape3D5" type="CollisionShape3D" parent="Killbox" unique_id=1811386220]
-transform = Transform3D(-1.1802075e-07, -1, 0, 2.7, -4.371139e-08, 0, 0, 0, 2.2, 658, 550, 0)
+transform = Transform3D(-1.1802075e-07, -2.7, 0, 2.7, -1.1802075e-07, 0, 0, 0, 2.7, 658, 550, 0)
 shape = SubResource("killbox_shape")
