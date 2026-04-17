@@ -414,9 +414,9 @@ Agent: Ability Agent
 
 
 
-\[ ] In combat/loadout\_presets.gd, replace MortarAbility.new("ability\_4") with ResonancePillarAbility.new("ability\_4") in the "Resonance Mk.I" branch
+\[x] In combat/loadout\_presets.gd, replace MortarAbility.new("ability\_4") with ResonancePillarAbility.new("ability\_4") in the "Resonance Mk.I" branch
 
-\[ ] Keep MortarAbility in the codebase (it's still referenced by "Xenolith Mk.I"? — verify; if not, it can stay as a reusable option for future presets or be archived)
+\[x] Keep MortarAbility in the codebase — verified it is NOT referenced by "Xenolith Mk.I" (that preset uses CloneAbility in slot 4). Retained as a reusable option for future presets.
 
 
 

@@ -35,7 +35,9 @@ static func create_loadout(preset_name: String) -> Loadout:
 			loadout.add_ability(ResonantPunchAbility.new("ability_1"))
 			loadout.add_ability(KnockbackAbility.new("ability_2"))
 			loadout.add_ability(CounterHitAbility.new("ability_3"))
-			loadout.add_ability(MortarAbility.new("ability_4"))
+			loadout.add_ability(ResonancePillarAbility.new("ability_4"))
+		"FluxCore Mk.I":
+			pass
 		_:
 			push_warning("LoadoutPresets: unknown preset '%s'" % preset_name)
 	return loadout
