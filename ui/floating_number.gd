@@ -15,7 +15,7 @@ func _ready() -> void:
 	no_depth_test = true
 	fixed_size = true
 	pixel_size = 0.001
-	font_size = 48
+	font_size = 18
 	modulate = Color(1.0, 0.55, 0.1)
 	outline_modulate = Color(0.08, 0.04, 0.0)
 	outline_size = 12
