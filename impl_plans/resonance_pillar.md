@@ -318,9 +318,9 @@ Agent: Ability Agent
 
 
 
-\[ ] In ResonancePillar.\_ready(): look up caster's Slot 2 ability, connect to its activated signal
+\[x] In ResonancePillar.\_ready(): look up caster's Slot 2 ability, connect to its activated signal
 
-\[ ] Handler: call a \_deliver\_aoe\_at(pillar.global\_position, caster, 5.5, knockback\_effect\_factory) using the Phase 1.1 helper
+\[x] Handler: call a \_deliver\_aoe\_at(pillar.global\_position, caster, 5.5, knockback\_effect\_factory) using the Phase 1.1 helper
 
 &#x20; ◦ Origin: pillar position (so push direction is away-from-pillar)
 
@@ -328,9 +328,9 @@ Agent: Ability Agent
 
 &#x20; ◦ Effect factory: KnockbackEffect.new(pillar) (per Q6 — pillar is source for both push-direction and kill attribution)
 
-\[ ] Pay the cost: apply the same "Repulse Cost" 18.0 heat 1-tick effect to the pillar's own reactor (reuse the exact construction KnockbackAbility.create\_self\_effects uses)
+\[x] Pay the cost: apply the same "Repulse Cost" 18.0 heat 1-tick effect to the pillar's own reactor (reuse the exact construction KnockbackAbility.create\_self\_effects uses)
 
-\[ ] Caster's own Repulse still fires normally (additive behavior — option 2a confirmed)
+\[x] Caster's own Repulse still fires normally (additive behavior — option 2a confirmed)
 
 
 
@@ -340,9 +340,9 @@ Agent: Status Effect Agent
 
 
 
-\[ ] KnockbackEffect currently assumes parent is CharacterBody3D and uses \_target.velocity += impulse and \_target.movement\_lock\_count. Confirm these are only ever called on reactor-hosts that ARE CharacterBody3D. The only new application path from pillars targets characters (pillars use the effect against other characters, not against themselves), so this should be fine, but double-check.
+\[x] KnockbackEffect currently assumes parent is CharacterBody3D and uses \_target.velocity += impulse and \_target.movement\_lock\_count. Confirm these are only ever called on reactor-hosts that ARE CharacterBody3D. The only new application path from pillars targets characters (pillars use the effect against other characters, not against themselves), so this should be fine, but double-check.
 
-\[ ] Confirm pillars are NOT valid knockback targets (they're StaticBody3D, have no velocity). Per Q2 resolution, AoE filtering should skip pillars when delivering knockback.
+\[x] Confirm pillars are NOT valid knockback targets (they're StaticBody3D, have no velocity). Per Q2 resolution, AoE filtering should skip pillars when delivering knockback.
 
 
 
@@ -479,4 +479,3 @@ Phase 7 — Polish \& verification
 \[ ] Pillar-count HUD element? (Would need pillar-list access on the ability — WeakRef list from 2.3 would support it.) Out of scope for this plan.
 
 \[ ] Floating numbers from pillar-origin AoE will naturally show at each pillar's position — confirm existing FloatingNumber spawn logic uses the target's position (not the source's), so this works automatically.
-

@@ -16,11 +16,12 @@ extends StaticBody3D
 ## not need a bespoke [code]die()[/code] handler — a single tick of
 ## sustained overheat is enough to free it.
 ##
-## [b]Forward reference — Phase 3.1+:[/b] subsequent phases will connect
-## this pillar to its [member caster]'s Slot 1 / Slot 2 / Slot 3 abilities
-## and to its [signal CharacterBase.melee_strike] signal so the pillar can
-## replicate caster activations at its own position. [b]Every signal
-## handler added in Phase 3.1+ MUST begin with[/b]
+## [b]Signal subscriptions (Phase 3.1: Slot 1 + melee echo; Phase 4.1:
+## Slot 2 / Repulse echo):[/b] the pillar subscribes to its
+## [member caster]'s Slot 1 and Slot 2 abilities and to its
+## [signal CharacterBase.melee_strike] signal so the pillar replicates
+## caster activations at its own position.  Phase 5.1 will add Slot 3.
+## [b]Every signal handler MUST begin with[/b]
 ## [code]if not is_instance_valid(caster): return[/code] to guard against
 ## the caster being freed before pillar teardown completes.
 
@@ -171,6 +172,14 @@ func _ready() -> void:
 			_slot1_active = _slot1_ability.is_active()
 			_slot1_ability.activated.connect(_on_slot1_activated)
 			_slot1_ability.deactivated.connect(_on_slot1_deactivated)
+		# -- Slot 2 (Repulse) subscription (Phase 4.1) ---------------------
+		# Repulse is INSTANT, so only the activated signal fires — no
+		# deactivated connection or _slot2_active mirror needed.
+		_slot2_ability = loadout.get_ability_for_action("ability_2")
+		if _slot2_ability == null:
+			push_warning("ResonancePillar: caster has no ability bound to \"ability_2\"; skipping Slot 2 subscription.")
+		else:
+			_slot2_ability.activated.connect(_on_slot2_activated)
 	if caster.has_signal("melee_strike"):
 		caster.melee_strike.connect(_on_caster_melee_strike)
 	else:
@@ -207,22 +216,22 @@ func _exit_tree() -> void:
 	if not is_instance_valid(caster):
 		return
 
-	# Disconnect the three Slot 1 / melee-strike subscriptions established
+	# Disconnect the Slot 1 / Slot 2 / melee-strike subscriptions established
 	# in _ready. Each hop is guarded by is_connected so a double teardown
 	# (e.g. _exit_tree firing after force_deactivate-driven cleanup) stays
-	# a safe no-op. The _slot1_ability truthy check also handles the
-	# "caster had no Slot 1 binding at spawn" case — subscription was
-	# skipped in _ready, so there is nothing to disconnect here either.
+	# a safe no-op. The _slotN_ability truthy checks also handle the
+	# "caster had no binding at spawn" case — subscription was skipped in
+	# _ready, so there is nothing to disconnect here either.
 	if _slot1_ability and _slot1_ability.activated.is_connected(_on_slot1_activated):
 		_slot1_ability.activated.disconnect(_on_slot1_activated)
 	if _slot1_ability and _slot1_ability.deactivated.is_connected(_on_slot1_deactivated):
 		_slot1_ability.deactivated.disconnect(_on_slot1_deactivated)
 	if caster.has_signal("melee_strike") and caster.melee_strike.is_connected(_on_caster_melee_strike):
 		caster.melee_strike.disconnect(_on_caster_melee_strike)
-	# NOTE — Phase 4.1 / 5.1: when Slot 2 and Slot 3 subscriptions land,
-	# add matching is_connected-guarded disconnects here for their
-	# activated signals (deactivated is not needed for those slots — see
-	# their phase notes in resonance_pillar.md).
+	if _slot2_ability and _slot2_ability.activated.is_connected(_on_slot2_activated):
+		_slot2_ability.activated.disconnect(_on_slot2_activated)
+	# NOTE — Phase 5.1: when Slot 3 subscription lands, add a matching
+	# is_connected-guarded disconnect here for its activated signal.
 
 
 ## Handler: caster's Slot 1 ability just transitioned to active.
@@ -242,6 +251,88 @@ func _on_slot1_deactivated(_user: Node) -> void:
 	if not is_instance_valid(caster):
 		return
 	_slot1_active = false
+
+
+## Handler: the caster's Slot 2 (Repulse) ability just activated —
+## replicate the knockback burst from this pillar's position.
+##
+## [b]Reaction, not modification.[/b] The caster's own Repulse fires
+## normally from their position via [KnockbackAbility] → [AoeAbility]
+## — this handler adds an ADDITIONAL burst centred on the pillar.
+## The two are purely additive: a target within range of both the caster
+## and a pillar will eat two [KnockbackEffect]s (one from each origin).
+##
+## [b]Source = self (the pillar).[/b] [code]KnockbackEffect.new(self)[/code]
+## means the push direction is computed as "away from the pillar's
+## [code]global_position[/code]" and kill attribution flows to the pillar,
+## not the caster.  This is per Q6 in resonance_pillar.md — the pillar
+## is the emitter, so it owns direction and credit.
+##
+## [b]Pillar skip.[/b] The [code]is_pillar[/code] check prevents deployed
+## pillars from knockback-chaining each other.  Without this, two pillars
+## in range would each apply [KnockbackEffect] to the other, and if
+## either pillar's knockback somehow triggered further activations, an
+## infinite cascade could follow.
+##
+## [b]Cost semantics.[/b] 18.0-heat replication cost (1-tick, stackable,
+## non-refreshable) is applied to the pillar's OWN reactor — same
+## magnitude as [code]KnockbackAbility.create_self_effects[/code].
+## Source = self so the cost is attributed to the pillar.  Fires
+## unconditionally even if the AoE scan finds zero valid targets: the
+## pillar still "pulsed" and still pays (same convention as the Slot 1
+## handler).
+##
+## [b]Order of operations.[/b] AoE delivery happens BEFORE cost
+## application, so if the cost pushes the pillar's reactor over
+## [member ReactorCore.max_heat] (triggering the instant-deletion
+## path), the knockback has already been dispatched to targets.
+func _on_slot2_activated(_user: Node) -> void:
+	if not is_instance_valid(caster):
+		return
+
+	# -- AoE knockback delivery at the pillar's position ------------------
+	# Radius = 5.5 (matching KnockbackAbility.aoe_radius). Origin = this
+	# pillar's global position. Effects attributed to self (the pillar) so
+	# push direction is away-from-pillar and kill credit stays with it.
+	var aoe_radius := 5.5
+	var origin := global_position
+	var tree := get_tree()
+	if tree:
+		for node in tree.get_nodes_in_group("characters"):
+			if node == caster:
+				continue
+			var body := node as Node3D
+			if not body:
+				continue
+			if body.get("_dead"):
+				continue
+			# Pillar→pillar cascade guard — prevents knockback chaining
+			# between deployed pillars.
+			if body.get("is_pillar"):
+				continue
+
+			# Horizontal range check (Y-ignored, matches AoeAbility).
+			var offset := body.global_position - origin
+			offset.y = 0.0
+			var dist := offset.length()
+			if dist > aoe_radius or dist < 0.01:
+				continue
+
+			# Fetch target's reactor via the duck-typed accessor.
+			var reactor: Node = body.get_reactor() if body.has_method("get_reactor") else null
+			if not reactor:
+				continue
+
+			# Fresh KnockbackEffect per target — source = self (the
+			# pillar) so push direction is away-from-pillar and kill
+			# attribution goes to the pillar (Q6).
+			reactor.apply_effect(KnockbackEffect.new(self))
+
+	# -- Pay the replication cost ------------------------------------------
+	# 18.0 heat, 1-tick, applied to THIS pillar's reactor. Matches
+	# KnockbackAbility.create_self_effects cost magnitude. Source = self
+	# so the cost is attributed to the pillar. Fired unconditionally.
+	_reactor.apply_effect(StatusEffect.new("Repulse Cost", 18.0, 1, self, true, false))
 
 
 ## Handler: the caster's [signal CharacterBase.melee_strike] fired —
