@@ -426,7 +426,7 @@ Agent: Ability Agent
 
 
 
-\[ ] On caster loadout swap: Loadout.deactivate\_all(user) already calls force\_deactivate on every ability. Ensure ResonancePillarAbility.force\_deactivate frees all owned pillars (per Q1 decision).
+\[x] On caster loadout swap: Loadout.deactivate\_all(user) already calls force\_deactivate on every ability. Ensure ResonancePillarAbility.force\_deactivate frees all owned pillars (per Q1 decision).
 
 \[ ] On caster death (per Q1 — pillars despawn): CharacterBase.die() path flows into loadout deactivation → ResonancePillarAbility.force\_deactivate → pillars freed. Verify the chain actually fires end-to-end.
 
