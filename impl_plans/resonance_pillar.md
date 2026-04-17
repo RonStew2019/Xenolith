@@ -382,19 +382,19 @@ Agent: Status Effect Agent (+ Ability Agent coordination)
 
 
 
-\[ ] Per Q2 (Option A): pillars join "characters" group with is\_pillar = true marker
+\[x] Per Q2 (Option A): pillars join "characters" group with is\_pillar = true marker — resonance\_pillar.gd already has `var is_pillar: bool = true` and `add_to_group("characters")` in `_ready()`.
 
-\[ ] Update AoeAbility.\_deliver\_aoe\_at to NOT skip pillars (currently it just scans "characters"; pillars being in that group means they get hit naturally — good)
+\[x] Update AoeAbility.\_deliver\_aoe\_at to NOT skip pillars — it scans "characters" group without pillar filtering; pillars are naturally included as AoE targets.
 
-\[ ] Update Projectile.\_on\_body\_entered to allow pillar hits (it currently requires "characters" group — pillar being in it means it's naturally hittable)
+\[x] Update Projectile.\_on\_body\_entered to allow pillar hits — checks `is_in_group("characters")`; pillars qualify. Reactor lookup via `get_reactor()` works.
 
-\[ ] KnockbackEffect: filter out pillars from being valid targets (they're not CharacterBody3D; the effect would no-op but we should skip cleanly). Cleanest: add an is\_pillar check in \_deliver\_aoe\_at before the reactor lookup, OR have KnockbackEffect.on\_apply early-return gracefully when target is not a CharacterBody3D.
+\[x] KnockbackEffect: filter out pillars from being valid targets — `on_apply` now sets `heat = 0.0` and `duration = 0` when target is not a CharacterBody3D, making the effect inert and immediately expiring.
 
-\[ ] Melee targeting: audit character\_base.gd around line 396-413 (where melee\_strike.emit fires) — does melee hit-resolution target characters via raycast/area, and will it naturally hit pillars? Decide if pillars should be punch-able (feels like yes — landing a melee on your own pillar is absurd but on an enemy's pillar is valid).
+\[x] Melee targeting: `_find_melee_target` in character\_base.gd scans "characters" group — pillars are naturally punchable. Landing melee on an enemy's pillar is a valid play.
 
-\[ ] AI targeting audit: CombatAI should treat enemy pillars as viable low-priority targets (or ignore them entirely — design call). Flag this as a separate smaller follow-up task; out of scope for this plan but note the interaction exists.
+\[x] AI targeting audit: CombatAI.\_find\_nearest\_enemy would treat pillars as valid targets (including own caster's). Flagged as follow-up — out of scope for this plan but the interaction is noted.
 
-\[ ] \_find\_living\_clone\_in\_family() / clone family-tree traversal: must ignore pillars. Verify by code inspection.
+\[x] \_find\_living\_clone\_in\_family() / clone family-tree traversal: iterates `clone_children`. Pillars are NOT in clone\_children (spawned by PersistentProjectile, not the clone system). Clone traversal naturally ignores them.
 
 
 

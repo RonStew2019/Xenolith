@@ -62,7 +62,14 @@ func on_apply(reactor: Node) -> void:
 	if parent is CharacterBody3D:
 		_target = parent
 	else:
+		# Non-character hosts (e.g. resonance pillars — StaticBody3D with
+		# is_pillar marker) cannot be knocked back.  Zero heat and mark
+		# expired so ReactorCore ticks this effect out harmlessly on the
+		# next combat tick without contributing heat or push forces.
 		_target = null
+		heat = 0.0
+		duration = 0
+		return
 
 	# Lock the target's horizontal movement so input doesn't overwrite
 	# our velocity impulses.  The counter is stackable-safe.
