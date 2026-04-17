@@ -16,11 +16,10 @@ extends StaticBody3D
 ## not need a bespoke [code]die()[/code] handler — a single tick of
 ## sustained overheat is enough to free it.
 ##
-## [b]Signal subscriptions (Phase 3.1: Slot 1 + melee echo; Phase 4.1:
-## Slot 2 / Repulse echo):[/b] the pillar subscribes to its
-## [member caster]'s Slot 1 and Slot 2 abilities and to its
+## [b]Signal subscriptions:[/b] the pillar subscribes to its
+## [member caster]'s Slot 1, Slot 2, and Slot 3 abilities and to its
 ## [signal CharacterBase.melee_strike] signal so the pillar replicates
-## caster activations at its own position.  Phase 5.1 will add Slot 3.
+## caster activations at its own position.
 ## [b]Every signal handler MUST begin with[/b]
 ## [code]if not is_instance_valid(caster): return[/code] to guard against
 ## the caster being freed before pillar teardown completes.
@@ -82,10 +81,13 @@ var _slot1_active: bool = false
 ## gracefully and the pillar still functions as an inert reactor-host.
 var _slot2_ability: Ability = null
 
-# TODO — Phase 5.1: cached reference to the caster's Slot 3 ability
-# will live here when its subscription is wired.
-# Expected field:
-#   var _slot3_ability: Ability = null   # — activated
+## Cached reference to the caster's Slot 3 ability ("ability_3"),
+## subscribed in [method _ready] so the pillar can echo its activation
+## by self-applying the same [CounterHitEffect] to its own reactor.
+## Like Slot 2, Counter-Hit is INSTANT so only the [signal Ability.activated]
+## signal is connected — no deactivated mirror or active-state tracking
+## needed. Left null when the caster has no Slot 3 binding at spawn time.
+var _slot3_ability: Ability = null
 
 
 func _ready() -> void:
@@ -180,6 +182,19 @@ func _ready() -> void:
 			push_warning("ResonancePillar: caster has no ability bound to \"ability_2\"; skipping Slot 2 subscription.")
 		else:
 			_slot2_ability.activated.connect(_on_slot2_activated)
+		# -- Slot 3 (Counter-Hit) subscription (Phase 5.1) -----------------
+		# Counter-Hit is INSTANT, so only the activated signal fires — no
+		# deactivated connection or _slot3_active mirror needed. On
+		# activation, the handler self-applies CounterHitEffect to the
+		# pillar's own reactor. No separate cost: the effect itself
+		# contributes 10 heat/tick × 10 ticks = 100 total heat, which at
+		# pillar max_heat = 100 will breach the pillar at or near expiry.
+		# This is by design (Q4) — pillars spend themselves on Counter-Hit.
+		_slot3_ability = loadout.get_ability_for_action("ability_3")
+		if _slot3_ability == null:
+			push_warning("ResonancePillar: caster has no ability bound to \"ability_3\"; skipping Slot 3 subscription.")
+		else:
+			_slot3_ability.activated.connect(_on_slot3_activated)
 	if caster.has_signal("melee_strike"):
 		caster.melee_strike.connect(_on_caster_melee_strike)
 	else:
@@ -230,8 +245,8 @@ func _exit_tree() -> void:
 		caster.melee_strike.disconnect(_on_caster_melee_strike)
 	if _slot2_ability and _slot2_ability.activated.is_connected(_on_slot2_activated):
 		_slot2_ability.activated.disconnect(_on_slot2_activated)
-	# NOTE — Phase 5.1: when Slot 3 subscription lands, add a matching
-	# is_connected-guarded disconnect here for its activated signal.
+	if _slot3_ability and _slot3_ability.activated.is_connected(_on_slot3_activated):
+		_slot3_ability.activated.disconnect(_on_slot3_activated)
 
 
 ## Handler: caster's Slot 1 ability just transitioned to active.
@@ -333,6 +348,40 @@ func _on_slot2_activated(_user: Node) -> void:
 	# KnockbackAbility.create_self_effects cost magnitude. Source = self
 	# so the cost is attributed to the pillar. Fired unconditionally.
 	_reactor.apply_effect(StatusEffect.new("Repulse Cost", 18.0, 1, self, true, false))
+
+
+## Handler: the caster's Slot 3 (Counter-Hit) ability just activated —
+## apply [CounterHitEffect] to the pillar's own reactor.
+##
+## [b]Reaction, not modification.[/b] The caster's own Counter-Hit fires
+## normally, self-applying [CounterHitEffect] to the caster's reactor via
+## [CounterHitAbility.create_self_effects]. This handler adds an ADDITIONAL
+## [CounterHitEffect] on the pillar's reactor, so the pillar independently
+## records effects applied to it for 10 ticks and broadcasts copies to
+## characters within 10m of the pillar on expiry.
+##
+## [b]Source = caster.[/b] [code]CounterHitEffect.new(caster)[/code] means
+## kill attribution on the broadcast copies flows to the caster. The
+## broadcast origin is [code]reactor.get_parent()[/code] (the pillar), so
+## the 10m AoE is correctly centred on the pillar's position.
+##
+## [b]No separate cost (Q4).[/b] [CounterHitEffect] itself contributes
+## [code]10.0 heat/tick × 10 ticks = 100 total heat[/code]. At pillar
+## [code]max_heat = 100[/code] (Q3), this will breach the pillar at or
+## near the effect's expiry. This is the intended cost model — the pillar
+## genuinely spends itself to replicate Counter-Hit. Do NOT add cooling
+## or reduce the effect's heat to "save" the pillar.
+##
+## [b]Caster's own Counter-Hit is additive.[/b] Both the caster and the
+## pillar independently record and broadcast — a target within 10m of
+## both will receive two broadcast waves (one from each origin).
+func _on_slot3_activated(_user: Node) -> void:
+	if not is_instance_valid(caster):
+		return
+	# Apply CounterHitEffect to the pillar's own reactor. Source = caster
+	# so kill attribution on broadcast copies flows to the caster.
+	# No separate cost effect — CounterHitEffect IS the cost (see Q4).
+	_reactor.apply_effect(CounterHitEffect.new(caster))
 
 
 ## Handler: the caster's [signal CharacterBase.melee_strike] fired —

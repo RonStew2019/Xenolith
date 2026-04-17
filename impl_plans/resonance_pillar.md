@@ -362,17 +362,17 @@ Agent: Ability Agent (wiring) + Status Effect Agent (CounterHitEffect behavior v
 
 
 
-\[ ] In ResonancePillar.\_ready(): look up caster's Slot 3 ability, connect to its activated signal
+\[x] In ResonancePillar.\_ready(): look up caster's Slot 3 ability, connect to its activated signal
 
-\[ ] Handler: apply CounterHitEffect.new(caster) directly to the pillar's own reactor
+\[x] Handler: apply CounterHitEffect.new(caster) directly to the pillar's own reactor
 
 &#x20; ◦ Source = caster (so kill attribution on the reflected broadcast goes to caster)
 
 &#x20; ◦ The pillar's CounterHitEffect will then record any effects applied to the pillar's reactor for 10 ticks and broadcast them to characters within 10m of the pillar on expiry — exactly the behavior we want, for free
 
-\[ ] No separate cost needed (per Q4): CounterHitEffect itself contributes 10 heat/tick × 10 ticks = 100 total heat. At pillar max_heat = 100 (Q3), Counter-Hit replication will typically breach the pillar at or near effect expiry. This is the intended cost model — do NOT try to reduce CounterHitEffect's heat or add cooling to "save" the pillar. Pillars genuinely spend themselves to replicate Counter-Hit.
+\[x] No separate cost needed (per Q4): CounterHitEffect itself contributes 10 heat/tick × 10 ticks = 100 total heat. At pillar max_heat = 100 (Q3), Counter-Hit replication will typically breach the pillar at or near effect expiry. This is the intended cost model — do NOT try to reduce CounterHitEffect's heat or add cooling to "save" the pillar. Pillars genuinely spend themselves to replicate Counter-Hit.
 
-\[ ] Caster's own counter-hit still fires normally on self (additive)
+\[x] Caster's own counter-hit still fires normally on self (additive)
 
 
 
