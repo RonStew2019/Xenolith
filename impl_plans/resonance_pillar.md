@@ -446,13 +446,13 @@ Phase 7 — Polish \& verification
 
 7.1 — Visual polish
 
-\[ ] Pillar emissive column (resonance color)
+\[x] Pillar emissive column (resonance color)
 
-\[ ] Spawn animation on terrain impact (quick vertical growth tween)
+\[x] Spawn animation on terrain impact (quick vertical growth tween)
 
-\[ ] Breach-delete flash (brief expanding sphere, similar to AoeProjectile.\_spawn\_explosion\_flash)
+\[x] Breach-delete flash (brief expanding sphere, similar to AoeProjectile.\_spawn\_explosion\_flash)
 
-\[ ] Replication-trigger flash on the pillar when it fires Repulse / Resonance melee AoE / receives Counter-Hit (helps legibility)
+\[x] Replication-trigger flash on the pillar when it fires Repulse / Resonance melee AoE / receives Counter-Hit (helps legibility)
 
 
 

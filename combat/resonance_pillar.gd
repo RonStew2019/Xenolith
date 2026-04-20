@@ -55,6 +55,21 @@ var _dead: bool = false
 ## (Q2 Option A in resonance_pillar.md).
 var is_pillar: bool = true
 
+## Reference to the pillar's visual mesh (emissive violet cylinder), stored
+## so [method _flash_replication] can animate the emission intensity and the
+## spawn tween can target it.
+var _mesh_inst: MeshInstance3D = null
+
+## Tween driving the spawn growth animation (scale.y 0→1 over 0.3 s).
+## Stored so breach-during-spawn can kill it cleanly without leaving the
+## pillar at a fractional scale.
+var _spawn_tween: Tween = null
+
+## Tween driving the current replication flash (emission energy pulse).
+## Stored so rapid activations can kill the previous flash before starting
+## a new one, preventing tween conflicts.
+var _flash_tween: Tween = null
+
 ## Cached reference to the caster's Slot 1 ability ("ability_1"),
 ## subscribed in [method _ready] so the pillar can mirror its active
 ## state. Left null when the caster has no Slot 1 binding at spawn
@@ -134,20 +149,36 @@ func _ready() -> void:
 	# emission colours mirror PersistentProjectile so visually the
 	# projectile "becomes" the pillar on impact. Same +height/2 Y offset
 	# so the column stands ON the impact point.
-	var mesh_inst := MeshInstance3D.new()
+	_mesh_inst = MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
 	cyl.top_radius = 0.5
 	cyl.bottom_radius = 0.5
 	cyl.height = 2.5
-	mesh_inst.mesh = cyl
+	_mesh_inst.mesh = cyl
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(0.7, 0.3, 1.0)
 	mat.emission_enabled = true
 	mat.emission = Color(0.75, 0.35, 1.0)
 	mat.emission_energy_multiplier = 4.0
-	mesh_inst.material_override = mat
-	mesh_inst.position.y = cyl.height * 0.5
-	add_child(mesh_inst)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+	_mesh_inst.material_override = mat
+	_mesh_inst.position.y = cyl.height * 0.5
+	add_child(_mesh_inst)
+
+	# -- Spawn growth animation (Phase 7.1 item 2) ------------------------
+	# Animate the pillar rising from the ground by tweening scale.y from
+	# near-zero to 1.0 over 0.3 s. We scale the entire pillar node (mesh +
+	# collision) — 0.3 s is short enough that the brief collision under-size
+	# has no gameplay impact, and scaling only the mesh would leave a
+	# collision-visible-mismatch that looks worse than a brief size ramp.
+	scale.y = 0.01  # near-zero avoids division-by-zero in physics
+	_spawn_tween = create_tween()
+	_spawn_tween.tween_property(self, "scale:y", 1.0, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+
+	# -- Breach-delete flash subscription (Phase 7.1 item 3) --------------
+	# reactor_breached fires BEFORE _fragile_break queue_frees the host,
+	# so the handler has time to spawn a sibling flash node.
+	_reactor.reactor_breached.connect(_on_reactor_breached)
 
 	# -- Caster ability subscriptions (Phase 3.1) -------------------------
 	# Mirror the caster's Slot 1 toggle state and listen for their melee
@@ -304,6 +335,7 @@ func _on_slot1_deactivated(_user: Node) -> void:
 func _on_slot2_activated(_user: Node) -> void:
 	if not is_instance_valid(caster):
 		return
+	_flash_replication()
 
 	# -- AoE knockback delivery at the pillar's position ------------------
 	# Radius = 5.5 (matching KnockbackAbility.aoe_radius). Origin = this
@@ -378,6 +410,7 @@ func _on_slot2_activated(_user: Node) -> void:
 func _on_slot3_activated(_user: Node) -> void:
 	if not is_instance_valid(caster):
 		return
+	_flash_replication()
 	# Apply CounterHitEffect to the pillar's own reactor. Source = caster
 	# so kill attribution on broadcast copies flows to the caster.
 	# No separate cost effect — CounterHitEffect IS the cost (see Q4).
@@ -448,6 +481,7 @@ func _on_caster_melee_strike(event: MeleeEvent) -> void:
 	# the existing semantics already satisfy "landed hit".
 	if event.cancelled or event.target == null:
 		return
+	_flash_replication()
 
 	# -- AoE delivery at the pillar's position ----------------------------
 	# Inlined copy of AoeAbility._deliver_aoe_at's scan+apply loop with
@@ -500,3 +534,75 @@ func _on_caster_melee_strike(event: MeleeEvent) -> void:
 	# cost-effect convention. Fired unconditionally — even if the AoE
 	# above found zero valid targets, the pillar still resonated.
 	_reactor.apply_effect(StatusEffect.new("Resonance Replication Cost", 20.0, 1, self, true, false))
+
+
+## Handler: the pillar's reactor has been breached — spawn a brief
+## expanding resonance-violet flash sphere as a sibling node before the
+## pillar is queue_freed by [method ReactorCore._fragile_break].
+##
+## The flash is added to the scene tree as a direct child of the current
+## scene (NOT as a child of the pillar, since the pillar is about to be
+## freed). A scale-up tween provides the "expanding" feel, and a Timer
+## auto-frees the flash after the animation completes.
+func _on_reactor_breached() -> void:
+	# Kill any in-progress spawn tween so scale doesn't fight.
+	if _spawn_tween and _spawn_tween.is_valid():
+		_spawn_tween.kill()
+
+	var tree := get_tree()
+	if not tree or not tree.current_scene:
+		return
+
+	var flash := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 1.0
+	sphere.height = 2.0
+	flash.mesh = sphere
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.7, 0.3, 1.0, 0.4)
+	mat.emission_enabled = true
+	mat.emission = Color(0.75, 0.35, 1.0)
+	mat.emission_energy_multiplier = 8.0
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.no_depth_test = true
+	flash.material_override = mat
+
+	# Start small and expand — gives the "burst" feel.
+	flash.scale = Vector3(0.3, 0.3, 0.3)
+
+	tree.current_scene.add_child(flash)
+	flash.global_position = global_position + Vector3(0.0, 1.25, 0.0)  # Centre of pillar
+
+	# Expand tween: scale up to full size over 0.15 s.
+	var expand_tween := tree.create_tween()
+	expand_tween.tween_property(flash, "scale", Vector3(1.8, 1.8, 1.8), 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+
+	# Auto-free after the expand finishes.
+	var timer := Timer.new()
+	timer.wait_time = 0.2
+	timer.one_shot = true
+	timer.autostart = true
+	timer.timeout.connect(flash.queue_free)
+	flash.add_child(timer)
+
+
+## Brief emission-energy pulse on the pillar's mesh to visually signal
+## that the pillar just replicated an ability. Tweens emission energy
+## from 12.0 → 4.0 over 0.2 s. Kills any in-progress flash tween first
+## so rapid activations don't conflict.
+func _flash_replication() -> void:
+	if not is_instance_valid(_mesh_inst):
+		return
+	var mat: StandardMaterial3D = _mesh_inst.material_override as StandardMaterial3D
+	if not mat:
+		return
+
+	# Kill previous flash tween if still running.
+	if _flash_tween and _flash_tween.is_valid():
+		_flash_tween.kill()
+
+	# Spike emission energy high and tween it back to resting value.
+	mat.emission_energy_multiplier = 12.0
+	_flash_tween = create_tween()
+	_flash_tween.tween_property(mat, "emission_energy_multiplier", 4.0, 0.2).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
