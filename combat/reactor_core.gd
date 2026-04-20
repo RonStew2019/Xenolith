@@ -262,6 +262,10 @@ func _fragile_break() -> void:
 	shutdown()
 	var host := get_parent()
 	if is_instance_valid(host) and not host.is_queued_for_deletion():
+		# Mark the host dead so same-tick AoE / projectile / AI scans skip
+		# it during the end-of-frame grace period before queue_free takes
+		# effect.  set() silently no-ops if the host lacks a _dead property.
+		host.set("_dead", true)
 		host.queue_free()
 
 

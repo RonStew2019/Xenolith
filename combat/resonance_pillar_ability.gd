@@ -98,7 +98,7 @@ func _fire_projectile(user: Node) -> void:
 func force_deactivate(user: Node) -> void:
 	for weak in _spawned_pillars:
 		var pillar: Node = weak.get_ref()
-		if pillar and is_instance_valid(pillar):
+		if pillar and is_instance_valid(pillar) and not pillar.is_queued_for_deletion():
 			pillar.queue_free()
 	_spawned_pillars.clear()
 	super.force_deactivate(user)
