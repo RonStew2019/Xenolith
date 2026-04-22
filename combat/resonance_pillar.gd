@@ -173,7 +173,7 @@ func _ready() -> void:
 	# collision-visible-mismatch that looks worse than a brief size ramp.
 	scale.y = 0.01  # near-zero avoids division-by-zero in physics
 	_spawn_tween = create_tween()
-	_spawn_tween.tween_property(self, "scale:y", 1.0, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	_spawn_tween.tween_property(self, "scale:y", .65, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 
 	# -- Breach-delete flash subscription (Phase 7.1 item 3) --------------
 	# reactor_breached fires BEFORE _fragile_break queue_frees the host,
