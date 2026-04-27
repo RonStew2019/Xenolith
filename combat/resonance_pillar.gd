@@ -124,7 +124,7 @@ func _ready() -> void:
 	# the breach free this host directly (no CharacterBase.die required).
 	var reactor := ReactorCore.new()
 	reactor.name = "ReactorCore"
-	reactor.max_heat = 100.0
+	reactor.max_heat = 150.0
 	reactor.max_integrity = 1.0
 	reactor.break_on_breach_deletes_host = true
 	add_child(reactor)
@@ -346,8 +346,9 @@ func _on_slot2_activated(_user: Node) -> void:
 	var tree := get_tree()
 	if tree:
 		for node in tree.get_nodes_in_group("characters"):
-			if node == caster:
-				continue
+			# allow knockback application to caster because it's more fun
+			#if node == caster:
+			#	continue
 			var body := node as Node3D
 			if not body:
 				continue
