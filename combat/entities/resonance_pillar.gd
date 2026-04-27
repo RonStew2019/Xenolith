@@ -144,26 +144,55 @@ func _ready() -> void:
 	col.position.y = capsule.height * 0.5
 	add_child(col)
 
-	# -- Visual mesh (emissive resonance-violet column) --------------------
-	# Cylinder matching the capsule's footprint and height. Albedo /
-	# emission colours mirror PersistentProjectile so visually the
-	# projectile "becomes" the pillar on impact. Same +height/2 Y offset
-	# so the column stands ON the impact point.
-	_mesh_inst = MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
-	cyl.top_radius = 0.5
-	cyl.bottom_radius = 0.5
-	cyl.height = 2.5
-	_mesh_inst.mesh = cyl
+	# -- Visual mesh (emissive resonance-violet bell/spike) ----------------
+	# Composite shape: a wider bell/dome base (truncated cone) with an
+	# elongated spike tapering to a point. Evokes a crystalline resonance
+	# stake driven into the ground. Both mesh parts share one material
+	# instance so _flash_replication animates them uniformly.
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(0.7, 0.3, 1.0)
 	mat.emission_enabled = true
 	mat.emission = Color(0.75, 0.35, 1.0)
 	mat.emission_energy_multiplier = 4.0
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
-	_mesh_inst.material_override = mat
-	_mesh_inst.position.y = cyl.height * 0.5
-	add_child(_mesh_inst)
+
+	# Container Node3D holds both mesh parts and receives randomised
+	# rotation / tilt so the collision shape stays upright.
+	var visual_root := Node3D.new()
+	visual_root.name = "VisualRoot"
+
+	# Randomised orientation: full 360° Y spin + up to 20° tilt off
+	# vertical in a random horizontal direction. Applied to the visual
+	# container only — collision and ReactorCore are unaffected.
+	var y_rot := randf() * TAU
+	var tilt_angle := randf() * deg_to_rad(20.0)
+	var tilt_dir := randf() * TAU
+	var tilt_axis := Vector3(cos(tilt_dir), 0.0, sin(tilt_dir)).normalized()
+	visual_root.basis = Basis(tilt_axis, tilt_angle) * Basis(Vector3.UP, y_rot)
+
+	# Spike — elongated cone driven into the ground, point at y=0.
+	var spike_inst := MeshInstance3D.new()
+	var spike := CylinderMesh.new()
+	spike.top_radius = 0.3
+	spike.bottom_radius = 0.0
+	spike.height = 1.9
+	spike_inst.mesh = spike
+	spike_inst.material_override = mat
+	spike_inst.position.y = 0.95           # centre at 0.95 → point at y=0
+	visual_root.add_child(spike_inst)
+
+	# Bell/dome — truncated cone flaring wide at the top.
+	_mesh_inst = MeshInstance3D.new()
+	var bell := CylinderMesh.new()
+	bell.top_radius = 0.6
+	bell.bottom_radius = 0.3
+	bell.height = 0.6
+	_mesh_inst.mesh = bell
+	_mesh_inst.material_override = mat     # same instance → uniform flash
+	_mesh_inst.position.y = 1.9 + 0.3      # centre at 2.2 → top at y=2.5
+	visual_root.add_child(_mesh_inst)
+
+	add_child(visual_root)
 
 	# -- Spawn growth animation (Phase 7.1 item 2) ------------------------
 	# Animate the pillar rising from the ground by tweening scale.y from
