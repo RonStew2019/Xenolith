@@ -1,4 +1,4 @@
-extends "res://combat/ability.gd"
+extends "res://combat/abilities/ability.gd"
 class_name AoeAbility
 ## Reusable base for abilities that deliver effects to every valid character
 ## inside a horizontal radius around an arbitrary spatial origin.

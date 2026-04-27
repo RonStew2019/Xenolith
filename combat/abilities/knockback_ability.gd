@@ -1,4 +1,4 @@
-extends "res://combat/aoe_ability.gd"
+extends "res://combat/abilities/aoe_ability.gd"
 class_name KnockbackAbility
 ## Fires an omnidirectional repulsor burst — every character within
 ## [member aoe_radius] metres is blasted away with a [KnockbackEffect].

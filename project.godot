@@ -17,7 +17,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-CombatTickClock="*res://combat/combat_tick_clock.gd"
+CombatTickClock="*res://combat/core/combat_tick_clock.gd"
 
 [input]
 

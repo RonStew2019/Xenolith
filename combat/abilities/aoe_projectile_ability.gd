@@ -1,4 +1,4 @@
-extends "res://combat/projectile_ability.gd"
+extends "res://combat/abilities/projectile_ability.gd"
 class_name AoeProjectileAbility
 ## Reusable base for abilities that fire an [AoeProjectile] — a projectile
 ## that detonates in an area on impact instead of hitting a single target.

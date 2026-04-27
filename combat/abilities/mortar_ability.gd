@@ -1,4 +1,4 @@
-extends "res://combat/aoe_projectile_ability.gd"
+extends "res://combat/abilities/aoe_projectile_ability.gd"
 class_name MortarAbility
 ## Fires a slower AoE projectile that explodes on impact, dealing 25 heat
 ## to every character in the blast radius.

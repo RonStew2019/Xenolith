@@ -1,4 +1,4 @@
-extends "res://combat/ability.gd"
+extends "res://combat/abilities/ability.gd"
 class_name ProjectileAbility
 ## Reusable base for abilities that fire a [Projectile] carrying
 ## [StatusEffect]s to the first character it hits.
