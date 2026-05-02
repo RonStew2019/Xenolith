@@ -90,6 +90,7 @@ func _setup_loadout() -> void:
 		_loadout.add_ability(TunnelAbility.new("ability_2"))
 		_loadout.add_ability(CoilAbility.new("ability_3"))
 		_loadout.add_ability(CloneAbility.new("ability_4"))
+	_loadout.equip_all(self)
 
 
 # ── AI delegation & swap API ─────────────────────────────────────────────

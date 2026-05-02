@@ -16,6 +16,15 @@ func remove_ability(ability: Ability) -> void:
 	_abilities.erase(ability)
 
 
+## Call [method Ability.on_equip] on every ability in the loadout.
+## Should be called once after the loadout is created and assigned to a
+## character, so abilities that need initial state (e.g. passive buffs)
+## can set themselves up with a reference to their user.
+func equip_all(user: Node) -> void:
+	for ability in _abilities:
+		ability.on_equip(user)
+
+
 ## Force-deactivate every ability in this loadout.
 ## Called when the owning mech dies so TOGGLE/HOLD self-effects are
 ## properly removed from the reactor before it shuts down.

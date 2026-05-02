@@ -72,6 +72,14 @@ var _active: bool = false
 var _applied_effects: Array = []
 
 
+## Called once when the ability is first equipped in a loadout on a specific
+## user.  Override for abilities that need to set up initial state (e.g.
+## passive buffs that exist before the first activation).
+## Base implementation is a no-op.
+func on_equip(_user: Node) -> void:
+	pass
+
+
 ## Override: return fresh [StatusEffect] instances to apply to the user.
 func create_self_effects(_user: Node) -> Array:
 	return []

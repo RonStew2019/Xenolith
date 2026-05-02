@@ -69,6 +69,7 @@ func swap_loadout(preset_name: String) -> void:
 		_ability_bar = null
 
 	_loadout = LoadoutPresets.create_loadout(preset_name)
+	_loadout.equip_all(self)
 	current_preset = preset_name
 
 	_ability_bar = AbilityBar.new()

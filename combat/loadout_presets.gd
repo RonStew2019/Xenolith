@@ -13,6 +13,7 @@ class_name LoadoutPresets
 static var _names: Array[String] = [
 	"Xenolith Mk.I",
 	"Resonance Mk.I",
+	"Celestial Armory",
 ]
 
 
@@ -36,6 +37,11 @@ static func create_loadout(preset_name: String) -> Loadout:
 			loadout.add_ability(KnockbackAbility.new("ability_2"))
 			loadout.add_ability(CounterHitAbility.new("ability_3"))
 			loadout.add_ability(ResonancePillarAbility.new("ability_4"))
+		"Celestial Armory":
+			loadout.add_ability(CelestialSwordAbility.new("ability_1", "Sword Alpha", "Sword Alpha Aura"))
+			loadout.add_ability(CelestialSwordAbility.new("ability_2", "Sword Beta", "Sword Beta Aura"))
+			loadout.add_ability(CelestialSwordAbility.new("ability_3", "Sword Gamma", "Sword Gamma Aura"))
+			# Slot 4 reserved for the enhancer ability (not yet implemented)
 		"FluxCore Mk.I":
 			pass
 		_:
