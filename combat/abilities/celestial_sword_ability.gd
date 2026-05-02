@@ -41,6 +41,16 @@ var _sword_name: String = "Celestial Sword"
 ## Display name for this sword's aura effect (e.g. "Sword Alpha Aura").
 var _aura_name: String = "Celestial Sword Aura"
 
+## Factory that creates the per-sword aura effect.  Signature:
+## [code](aura_name: String, user: Node) -> CelestialSwordAuraEffect[/code].
+## Defaults to the generic base aura if no factory is provided.
+var _aura_factory: Callable = Callable()
+
+## Factory that creates the per-sword deployed entity.  Signature:
+## [code]() -> CelestialSwordEntity[/code].
+## Defaults to the generic base entity if no factory is provided.
+var _entity_factory: Callable = Callable()
+
 ## Cached user reference for signal callbacks (recalled handler).
 var _user_ref: WeakRef = null
 
@@ -54,14 +64,18 @@ func _init(
 	p_input: String = "ability_1",
 	p_sword_name: String = "Celestial Sword",
 	p_aura_name: String = "Celestial Sword Aura",
+	p_aura_factory: Callable = Callable(),
+	p_entity_factory: Callable = Callable(),
 ) -> void:
 	ability_name = p_sword_name
 	input_action = p_input
 	activation_mode = ActivationMode.TOGGLE
-	projectile_speed = 30.0
-	projectile_lifetime = 3.0
+	projectile_speed = 15.0
+	projectile_lifetime = 0.75
 	_sword_name = p_sword_name
 	_aura_name = p_aura_name
+	_aura_factory = p_aura_factory
+	_entity_factory = p_entity_factory
 
 
 ## Called once when the ability is first equipped in a loadout.
@@ -72,7 +86,7 @@ func on_equip(user: Node) -> void:
 	var reactor := _get_reactor(user)
 	if not reactor:
 		return
-	_passive_effect = CelestialSwordAuraEffect.new(_aura_name, user)
+	_passive_effect = _create_aura(user)
 	reactor.apply_effect(_passive_effect)
 
 
@@ -102,7 +116,7 @@ func activate(user: Node) -> void:
 		# -- Recall: bring sword back, reapply passive buff ---------------
 		_active = false  # Set BEFORE recall so _on_sword_recalled no-ops
 		_recall_deployed_sword()
-		_passive_effect = CelestialSwordAuraEffect.new(_aura_name, user)
+		_passive_effect = _create_aura(user)
 		reactor.apply_effect(_passive_effect)
 		deactivated.emit(user)
 
@@ -135,7 +149,7 @@ func force_deactivate(user: Node) -> void:
 ## Return a fresh, independent copy bound to the same input action.
 ## Overrides base because our _init takes three params, not one.
 func duplicate_ability() -> Ability:
-	return CelestialSwordAbility.new(input_action, _sword_name, _aura_name)
+	return CelestialSwordAbility.new(input_action, _sword_name, _aura_name, _aura_factory, _entity_factory)
 
 
 # -- Overrides -------------------------------------------------------------
@@ -158,6 +172,7 @@ func _fire_projectile(user: Node) -> void:
 		projectile_lifetime,
 		_sword_name,
 		self,
+		_entity_factory,
 	)
 
 	tree.current_scene.add_child(proj)
@@ -207,10 +222,18 @@ func _on_sword_recalled(user: Node) -> void:
 	var reactor := _get_reactor(user)
 	if not reactor:
 		return
-	_passive_effect = CelestialSwordAuraEffect.new(_aura_name, user)
+	_passive_effect = _create_aura(user)
 	reactor.apply_effect(_passive_effect)
 	_active = false
 	deactivated.emit(user)
+
+
+## Create the appropriate aura effect using the factory (or fall back to
+## the generic base aura).
+func _create_aura(user: Node) -> CelestialSwordAuraEffect:
+	if _aura_factory.is_valid():
+		return _aura_factory.call(_aura_name, user)
+	return CelestialSwordAuraEffect.new(_aura_name, user)
 
 
 ## Recall the currently deployed sword if it still exists.

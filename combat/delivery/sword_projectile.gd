@@ -40,6 +40,11 @@ var _sword_name: String = ""
 ## the ability can track its deployed sword.
 var _owning_ability = null
 
+## Factory callable that creates the per-sword entity.  Signature:
+## [code]() -> CelestialSwordEntity[/code].  Falls back to the generic
+## base entity when not set or not valid.
+var _entity_factory: Callable = Callable()
+
 ## Guard flag — true once a sword has been spawned (terrain impact or
 ## lifetime expiry). Prevents double-spawn on same-frame overlaps.
 var _spawned: bool = false
@@ -54,6 +59,7 @@ func setup(
 	lifetime: float,
 	sword_name: String,
 	owning_ability,
+	entity_factory: Callable = Callable(),
 ) -> void:
 	_user = user
 	_direction = direction.normalized()
@@ -61,6 +67,7 @@ func setup(
 	_lifetime = lifetime
 	_sword_name = sword_name
 	_owning_ability = owning_ability
+	_entity_factory = entity_factory
 
 
 func _ready() -> void:
@@ -144,7 +151,11 @@ func _spawn_sword_at(spawn_position: Vector3) -> void:
 	if not tree or not tree.current_scene:
 		return
 
-	var sword := CelestialSwordEntity.new()
+	var sword: CelestialSwordEntity
+	if _entity_factory.is_valid():
+		sword = _entity_factory.call()
+	else:
+		sword = CelestialSwordEntity.new()
 	sword.caster = _user
 	sword.sword_name = _sword_name
 	sword.owning_ability = _owning_ability
