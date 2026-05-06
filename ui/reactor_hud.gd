@@ -69,12 +69,12 @@ func _unbind() -> void:
 # ── UI Construction ──────────────────────────────────────────────────────
 
 func _build_ui() -> void:
-	# Anchor bottom-left
-	set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	offset_left = 16.0
-	offset_bottom = -16.0
-	offset_top = offset_bottom - 148.0
-	offset_right = offset_left + 296.0
+	# Anchor top-right
+	set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	offset_right = -16.0
+	offset_top = 16.0
+	offset_left = offset_right - 296.0
+	offset_bottom = offset_top + 148.0
 
 	# Dark panel
 	var panel := PanelContainer.new()

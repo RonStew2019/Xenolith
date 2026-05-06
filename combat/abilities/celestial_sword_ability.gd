@@ -32,6 +32,10 @@ class_name CelestialSwordAbility
 ## if the sword is deployed (buff removed).
 var _passive_effect: CelestialSwordAuraEffect = null
 
+## Per-tick heat cost applied to the wielder's reactor while the sword
+## is deployed (0.2 heat/tick = 2 heat/sec).  Null when recalled.
+var _deploy_cost_effect: StatusEffect = null
+
 ## WeakRef to the deployed [CelestialSwordEntity], or null if recalled.
 var _deployed_sword: WeakRef = null
 
@@ -110,12 +114,19 @@ func activate(user: Node) -> void:
 			reactor.remove_effect(_passive_effect)
 			_passive_effect = null
 		_fire_projectile(user)
+		_deploy_cost_effect = StatusEffect.new(
+			_sword_name + " Deploy Cost", 2, -1, user, true, false
+		)
+		reactor.apply_effect(_deploy_cost_effect)
 		_active = true
 		activated.emit(user)
 	else:
 		# -- Recall: bring sword back, reapply passive buff ---------------
 		_active = false  # Set BEFORE recall so _on_sword_recalled no-ops
 		_recall_deployed_sword()
+		if _deploy_cost_effect:
+			reactor.remove_effect(_deploy_cost_effect)
+			_deploy_cost_effect = null
 		_passive_effect = _create_aura(user)
 		reactor.apply_effect(_passive_effect)
 		deactivated.emit(user)
@@ -133,8 +144,12 @@ func force_deactivate(user: Node) -> void:
 	var was_active := _active
 	_active = false  # Set BEFORE recall so _on_sword_recalled no-ops
 	_recall_deployed_sword()
+	var reactor := _get_reactor(user)
+	if _deploy_cost_effect:
+		if reactor:
+			reactor.remove_effect(_deploy_cost_effect)
+		_deploy_cost_effect = null
 	if _passive_effect:
-		var reactor := _get_reactor(user)
 		if reactor:
 			reactor.remove_effect(_passive_effect)
 		_passive_effect = null
@@ -222,6 +237,9 @@ func _on_sword_recalled(user: Node) -> void:
 	var reactor := _get_reactor(user)
 	if not reactor:
 		return
+	if _deploy_cost_effect:
+		reactor.remove_effect(_deploy_cost_effect)
+		_deploy_cost_effect = null
 	_passive_effect = _create_aura(user)
 	reactor.apply_effect(_passive_effect)
 	_active = false

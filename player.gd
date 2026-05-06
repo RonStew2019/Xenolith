@@ -16,6 +16,7 @@ extends CharacterBase
 var _hud_layer: CanvasLayer
 var _interaction_prompt: InteractionPrompt
 var _ability_bar: AbilityBar
+var _inventory: Inventory
 var current_preset: String = ""
 
 ## Maps raw keycodes to loadout action strings for ability activation.
@@ -32,6 +33,7 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	super._ready()
 	_setup_reactor()
+	_setup_inventory()
 	_setup_loadout()
 
 
@@ -55,8 +57,19 @@ func _setup_reactor() -> void:
 	_hud_layer.add_child(_interaction_prompt)
 
 
+func _setup_inventory() -> void:
+	_inventory = Inventory.new()
+	_inventory.name = "Inventory"
+	add_child(_inventory)
+
+	var inv_hud := InventoryHUD.new()
+	inv_hud.name = "InventoryHUD"
+	_hud_layer.add_child(inv_hud)
+	inv_hud.bind_inventory(_inventory)
+
+
 func _setup_loadout() -> void:
-	swap_loadout("Resonance Mk.I")
+	swap_loadout("Celestial Armory")
 
 
 ## Replace the current loadout with a named preset and rebuild the AbilityBar.

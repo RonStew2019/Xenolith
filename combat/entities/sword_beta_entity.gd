@@ -60,6 +60,9 @@ func _spawn_barrier() -> void:
 	# -- Visible force-field from preloaded glTF --------------------------
 	var visual := FORCE_FIELD_SCENE.instantiate()
 	visual.position.y = 0.75
+	# force_field.glb has a default diameter of 10 m (radius 5.0 m).
+	# Scale it so its radius matches BARRIER_RADIUS.
+	visual.scale = Vector3.ONE * (BARRIER_RADIUS / 5.0)
 	add_child(visual)
 
 
