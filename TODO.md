@@ -74,9 +74,9 @@ These existing systems carry forward largely intact:
   - [x] Resource node types and yields
   - [x] Harvesting mechanic (park on node → accumulate resources over time)
   - [x] Resource inventory (replaces old `inventory.gd`)
-- [ ] **Camera system for overworld**
-  - [ ] Top-down / strategic camera
-  - [ ] Zoom, pan, follow-carrier
+- [x] **Camera system for overworld**
+  - [x] Top-down / strategic camera
+  - [x] Zoom, pan, follow-carrier
 
 ---
 
