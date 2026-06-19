@@ -62,10 +62,10 @@ These existing systems carry forward largely intact:
 
 *Get the carrier moving on a hex map. No combat yet — just the strategic layer.*
 
-- [ ] **Hex grid system**
-  - [ ] Hex tile data model (terrain type, resource node, occupant)
-  - [ ] Hex grid rendering (top-down or slight perspective)
-  - [ ] Terrain type visuals (flora, desert, irradiated, mountain, resource)
+- [x] **Hex grid system**
+  - [x] Hex tile data model (terrain type, resource node, occupant)
+  - [x] Hex grid rendering (top-down or slight perspective)
+  - [x] Terrain type visuals (flora, desert, irradiated, mountain, resource)
 - [ ] **Carrier entity**
   - [ ] Carrier movement on hex grid (click-to-move or WASD)
   - [ ] Carrier "parking" on a hex (occupying it)
