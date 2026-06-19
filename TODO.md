@@ -95,10 +95,10 @@ These existing systems carry forward largely intact:
   - [x] Mech blueprint system (chassis + weapon loadout = blueprint)
   - [x] Build queue (resources + time → mech in hangar)
   - [x] Chassis types (dogfighter, bomber) as blueprint foundation
-- [ ] **Carrier customization UI**
-  - [ ] Node placement / management screen
-  - [ ] Blueprint creation screen
-  - [ ] Hangar overview (see your mechs)
+- [x] **Carrier customization UI**
+  - [x] Node placement / management screen
+  - [x] Blueprint creation screen
+  - [x] Hangar overview (see your mechs)
 
 ---
 
