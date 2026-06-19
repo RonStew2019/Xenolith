@@ -91,10 +91,10 @@ These existing systems carry forward largely intact:
   - [x] **Harvester node** — determines harvest rate from resource nodes
   - [x] **Automated defense node** — passive defense strength
   - [x] **Reactor node** — powers the carrier, win condition target
-- [ ] **Fabrication / mech building**
-  - [ ] Mech blueprint system (chassis + weapon loadout = blueprint)
-  - [ ] Build queue (resources + time → mech in hangar)
-  - [ ] Chassis types (dogfighter, bomber) as blueprint foundation
+- [x] **Fabrication / mech building**
+  - [x] Mech blueprint system (chassis + weapon loadout = blueprint)
+  - [x] Build queue (resources + time → mech in hangar)
+  - [x] Chassis types (dogfighter, bomber) as blueprint foundation
 - [ ] **Carrier customization UI**
   - [ ] Node placement / management screen
   - [ ] Blueprint creation screen

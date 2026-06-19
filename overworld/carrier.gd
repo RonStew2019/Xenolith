@@ -76,6 +76,12 @@ var _inventory: Inventory = null
 ## Installed carrier modules.  Each element is a [CarrierModule] or null.
 var _modules: Array[CarrierModule] = []
 
+## Reference to the carrier's child [Hangar] node.
+var _hangar: Hangar = null
+
+## Reference to the carrier's child [BuildQueue] node.
+var _build_queue: BuildQueue = null
+
 # -- Constants -------------------------------------------------------------
 
 ## Carrier body colour — teal / cyan so it pops against terrain.
@@ -92,6 +98,8 @@ const MOVE_TWEEN_DURATION: float = 0.3
 func _ready() -> void:
 	_create_visual()
 	_setup_inventory()
+	_setup_hangar()
+	_setup_build_queue()
 	# Auto-discover the HexGrid sibling if nobody called initialize() yet.
 	if hex_grid == null and get_parent() != null:
 		hex_grid = get_parent().get_node_or_null("HexGrid") as HexGrid
@@ -134,6 +142,16 @@ func _process(delta: float) -> void:
 ## Return the carrier's [Inventory] node.
 func get_inventory() -> Inventory:
 	return _inventory
+
+
+## Return the carrier's [Hangar] node.
+func get_hangar() -> Hangar:
+	return _hangar
+
+
+## Return the carrier's [BuildQueue] node.
+func get_build_queue() -> BuildQueue:
+	return _build_queue
 
 
 ## Set up the carrier on a specific grid at a starting hex.
@@ -363,13 +381,27 @@ func _stop_harvesting() -> void:
 	harvesting_stopped.emit()
 
 
-# -- Inventory Setup (private) --------------------------------------------
+# -- Child Node Setup (private) --------------------------------------------
 
 ## Create and attach the carrier's [Inventory] child node.
 func _setup_inventory() -> void:
 	_inventory = Inventory.new()
 	_inventory.name = "Inventory"
 	add_child(_inventory)
+
+
+## Create and attach the carrier's [Hangar] child node.
+func _setup_hangar() -> void:
+	_hangar = Hangar.new()
+	_hangar.name = "Hangar"
+	add_child(_hangar)
+
+
+## Create and attach the carrier's [BuildQueue] child node.
+func _setup_build_queue() -> void:
+	_build_queue = BuildQueue.new()
+	_build_queue.name = "BuildQueue"
+	add_child(_build_queue)
 
 
 # -- Movement Helpers (private) --------------------------------------------
@@ -413,6 +445,12 @@ func _install_default_modules() -> void:
 	default_harvester.description = "Standard resource extraction equipment."
 	default_harvester.harvest_rate_bonus = 5.0
 	install_module(default_harvester)
+
+	var default_hangar := HangarModule.new()
+	default_hangar.module_name = &"Basic Hangar"
+	default_hangar.description = "Standard mech storage bay."
+	default_hangar.mech_capacity = 4
+	install_module(default_hangar)
 
 
 # -- Visual Construction (private) ----------------------------------------
