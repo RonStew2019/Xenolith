@@ -17,6 +17,9 @@ enum TerrainType {
 	RESOURCE,   ## Harvestable resource node.
 }
 
+## The three harvestable resource types.
+const RESOURCE_TYPES: Array[StringName] = [&"metal", &"crystal", &"fuel"]
+
 ## Axial coordinate Q (column).
 var q: int = 0
 
@@ -29,8 +32,9 @@ var terrain: TerrainType = TerrainType.MOUNTAIN
 ## The entity currently occupying this hex (e.g. a carrier), or null.
 var occupant: Node = null
 
-## Resource subtype (0 = none).  Placeholder for future resource variety.
-var resource_type: int = 0
+## Resource subtype — one of [constant RESOURCE_TYPES], or [code]&""[/code]
+## if this hex has no harvestable resource.
+var resource_type: StringName = &""
 
 ## How much harvestable resource remains on this hex.
 var resource_amount: float = 0.0

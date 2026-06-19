@@ -16,6 +16,15 @@ signal moved(from_hex: Vector2i, to_hex: Vector2i)
 ## Emitted when the carrier parks on a hex.
 signal parked(hex_coords: Vector2i)
 
+## Emitted when the carrier begins harvesting a resource node.
+signal harvesting_started(resource_type: StringName)
+
+## Emitted when harvesting stops (moved away or node depleted).
+signal harvesting_stopped()
+
+## Emitted each frame while harvesting, reporting the type and amount gained.
+signal harvest_tick(resource_type: StringName, amount: float)
+
 # -- Exported Stats --------------------------------------------------------
 
 ## Maximum hex distance the carrier can move per action.
@@ -26,6 +35,9 @@ signal parked(hex_coords: Vector2i)
 
 ## Maximum hull integrity.
 @export var max_hull: float = 100.0
+
+## Resources harvested per second while parked on a RESOURCE hex.
+@export var harvest_rate: float = 5.0
 
 # -- State -----------------------------------------------------------------
 
@@ -38,6 +50,18 @@ var hex_grid: HexGrid = null
 
 ## Guards against input while a move tween is running.
 var is_moving: bool = false
+
+## Whether the carrier is currently harvesting a resource node.
+var _is_harvesting: bool = false
+
+## The hex cell currently being harvested, or null.
+var _harvest_cell: HexCell = null
+
+## Float accumulator — only whole units are deposited into [Inventory].
+var _harvest_accumulator: float = 0.0
+
+## Reference to the carrier's child [Inventory] node.
+var _inventory: Inventory = null
 
 # -- Constants -------------------------------------------------------------
 
@@ -54,6 +78,7 @@ const MOVE_TWEEN_DURATION: float = 0.3
 
 func _ready() -> void:
 	_create_visual()
+	_setup_inventory()
 	# Auto-discover the HexGrid sibling if nobody called initialize() yet.
 	if hex_grid == null and get_parent() != null:
 		hex_grid = get_parent().get_node_or_null("HexGrid") as HexGrid
@@ -62,7 +87,40 @@ func _ready() -> void:
 		_park(current_hex.x, current_hex.y)
 
 
+func _process(delta: float) -> void:
+	if not _is_harvesting or _harvest_cell == null:
+		return
+
+	# Drain from hex, accumulate float, deposit whole units.
+	var drain: float = minf(harvest_rate * delta, _harvest_cell.resource_amount)
+	_harvest_cell.resource_amount -= drain
+	_harvest_accumulator += drain
+	harvest_tick.emit(_harvest_cell.resource_type, drain)
+
+	# Deposit whole units into inventory.
+	var whole_units: int = int(_harvest_accumulator)
+	if whole_units > 0:
+		_inventory.add_resource(_harvest_cell.resource_type, whole_units)
+		_harvest_accumulator -= float(whole_units)
+
+	# Check for depletion.
+	if _harvest_cell.resource_amount <= 0.0:
+		_harvest_cell.resource_amount = 0.0
+		# Flush any remaining fractional accumulator.
+		var leftover: int = int(ceilf(_harvest_accumulator))
+		if leftover > 0:
+			_inventory.add_resource(_harvest_cell.resource_type, leftover)
+		_harvest_accumulator = 0.0
+		print("[Carrier] Harvest complete — node depleted")
+		_stop_harvesting()
+
+
 # -- Public API ------------------------------------------------------------
+
+## Return the carrier's [Inventory] node.
+func get_inventory() -> Inventory:
+	return _inventory
+
 
 ## Set up the carrier on a specific grid at a starting hex.
 func initialize(grid: HexGrid, start_q: int = 0, start_r: int = 0) -> void:
@@ -80,6 +138,7 @@ func move_to_hex(target_q: int, target_r: int) -> void:
 		return
 
 	var from := current_hex
+	_stop_harvesting()
 	_unpark()
 
 	is_moving = true
@@ -156,6 +215,10 @@ func _park(q: int, r: int) -> void:
 	if cell != null:
 		cell.occupant = self
 	parked.emit(Vector2i(q, r))
+	# Kick off harvesting if we just parked on a resource node.
+	if cell != null and cell.terrain == HexCell.TerrainType.RESOURCE \
+			and cell.resource_amount > 0.0 and cell.resource_type != &"":
+		_start_harvesting(cell)
 
 
 ## Release the currently occupied hex cell.
@@ -171,6 +234,36 @@ func _is_parked() -> bool:
 		return false
 	var cell := hex_grid.get_cell(current_hex.x, current_hex.y)
 	return cell != null and cell.occupant == self
+
+
+# -- Harvesting (private) -------------------------------------------------
+
+## Begin harvesting the given [HexCell].
+func _start_harvesting(cell: HexCell) -> void:
+	_harvest_cell = cell
+	_harvest_accumulator = 0.0
+	_is_harvesting = true
+	print("[Carrier] Harvesting %s... (%.1f remaining)" % [cell.resource_type, cell.resource_amount])
+	harvesting_started.emit(cell.resource_type)
+
+
+## Stop any active harvesting session.
+func _stop_harvesting() -> void:
+	if not _is_harvesting:
+		return
+	_is_harvesting = false
+	_harvest_cell = null
+	_harvest_accumulator = 0.0
+	harvesting_stopped.emit()
+
+
+# -- Inventory Setup (private) --------------------------------------------
+
+## Create and attach the carrier's [Inventory] child node.
+func _setup_inventory() -> void:
+	_inventory = Inventory.new()
+	_inventory.name = "Inventory"
+	add_child(_inventory)
 
 
 # -- Movement Helpers (private) --------------------------------------------

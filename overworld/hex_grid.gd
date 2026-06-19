@@ -113,6 +113,7 @@ func _generate_grid() -> void:
 			var cell := HexCell.new(q, r, terrain)
 			if terrain == HexCell.TerrainType.RESOURCE:
 				cell.resource_amount = randf_range(50.0, 150.0)
+				cell.resource_type = _pick_resource_type()
 			cells[Vector2i(q, r)] = cell
 
 
@@ -128,6 +129,18 @@ func _pick_terrain() -> HexCell.TerrainType:
 	elif roll < 0.45:
 		return HexCell.TerrainType.IRRADIATED
 	return HexCell.TerrainType.MOUNTAIN
+
+
+## Pick a weighted-random resource subtype for RESOURCE hexes.
+##
+## Distribution: ~50% metal, ~30% crystal, ~20% fuel.
+func _pick_resource_type() -> StringName:
+	var roll := randf()
+	if roll < 0.5:
+		return &"metal"
+	elif roll < 0.8:
+		return &"crystal"
+	return &"fuel"
 
 
 # -- Rendering (private) --------------------------------------------------
