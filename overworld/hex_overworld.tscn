@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://overworld/hex_grid.gd" id="1"]
+
+[node name="HexOverworld" type="Node3D"]
+
+[node name="HexGrid" type="Node3D" parent="."]
+script = ExtResource("1")
+grid_radius = 5
+cell_size = 2.0
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.447214, 0.894427, 0, -0.894427, 0.447214, 0, 20, 10)
+fov = 50.0
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 10, 0)
+shadow_enabled = true
