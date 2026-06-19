@@ -84,13 +84,13 @@ These existing systems carry forward largely intact:
 
 *Build out your carrier with modular nodes.*
 
-- [ ] **Carrier node system**
-  - [ ] Node slot architecture (carrier has N slots for modules)
-  - [ ] **Fabricator node** — unlocks mech building, determines build speed
-  - [ ] **Hangar node** — stores fabricated mechs, determines max capacity
-  - [ ] **Harvester node** — determines harvest rate from resource nodes
-  - [ ] **Automated defense node** — passive defense strength
-  - [ ] **Reactor node** — powers the carrier, win condition target
+- [x] **Carrier node system**
+  - [x] Node slot architecture (carrier has N slots for modules)
+  - [x] **Fabricator node** — unlocks mech building, determines build speed
+  - [x] **Hangar node** — stores fabricated mechs, determines max capacity
+  - [x] **Harvester node** — determines harvest rate from resource nodes
+  - [x] **Automated defense node** — passive defense strength
+  - [x] **Reactor node** — powers the carrier, win condition target
 - [ ] **Fabrication / mech building**
   - [ ] Mech blueprint system (chassis + weapon loadout = blueprint)
   - [ ] Build queue (resources + time → mech in hangar)
