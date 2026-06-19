@@ -66,10 +66,10 @@ These existing systems carry forward largely intact:
   - [x] Hex tile data model (terrain type, resource node, occupant)
   - [x] Hex grid rendering (top-down or slight perspective)
   - [x] Terrain type visuals (flora, desert, irradiated, mountain, resource)
-- [ ] **Carrier entity**
-  - [ ] Carrier movement on hex grid (click-to-move or WASD)
-  - [ ] Carrier "parking" on a hex (occupying it)
-  - [ ] Basic carrier stats (speed, hull)
+- [x] **Carrier entity**
+  - [x] Carrier movement on hex grid (click-to-move or WASD)
+  - [x] Carrier "parking" on a hex (occupying it)
+  - [x] Basic carrier stats (speed, hull)
 - [ ] **Resource system**
   - [ ] Resource node types and yields
   - [ ] Harvesting mechanic (park on node → accumulate resources over time)
