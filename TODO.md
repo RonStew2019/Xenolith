@@ -70,10 +70,10 @@ These existing systems carry forward largely intact:
   - [x] Carrier movement on hex grid (click-to-move or WASD)
   - [x] Carrier "parking" on a hex (occupying it)
   - [x] Basic carrier stats (speed, hull)
-- [ ] **Resource system**
-  - [ ] Resource node types and yields
-  - [ ] Harvesting mechanic (park on node → accumulate resources over time)
-  - [ ] Resource inventory (replaces old `inventory.gd`)
+- [x] **Resource system**
+  - [x] Resource node types and yields
+  - [x] Harvesting mechanic (park on node → accumulate resources over time)
+  - [x] Resource inventory (replaces old `inventory.gd`)
 - [ ] **Camera system for overworld**
   - [ ] Top-down / strategic camera
   - [ ] Zoom, pan, follow-carrier
