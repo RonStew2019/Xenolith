@@ -55,45 +55,97 @@ MAT_EXTREM  = 3
 MAT_REACTOR = 4
 
 
-BODY_PARTS = [
-    # (shape, center, dims, bone_name, material)
-    # ── Torso (Armor) ──
-    ("rounded_box",  (0, 0.88, 0),       (0.19, 0.11, 0.13), "Hips",     MAT_ARMOR),
-    ("rounded_box",  (0, 1.03, 0),       (0.14, 0.04, 0.10), "Spine",    MAT_ARMOR),
-    ("rounded_box",  (0, 1.21, 0),       (0.22, 0.14, 0.14), "Spine",    MAT_ARMOR),
+# ─── Chassis Body-Part Definitions ────────────────────────────────────────
+# Each entry: (shape, center, dims, bone_name, material)
+# Skeleton is IDENTICAL for both chassis — only mesh geometry differs.
+
+BODY_PARTS_DOGFIGHTER = [
+    # ── Torso (Armor) — lean, narrow ──
+    ("rounded_box",  (0, 0.88, 0),       (0.18, 0.11, 0.12), "Hips",     MAT_ARMOR),
+    ("rounded_box",  (0, 1.03, 0),       (0.13, 0.04, 0.09), "Spine",    MAT_ARMOR),
+    ("rounded_box",  (0, 1.21, 0),       (0.20, 0.14, 0.13), "Spine",    MAT_ARMOR),
     # ── Head (Armor) ──
-    ("ellipsoid",    (0, 1.55, 0),       (0.12, 0.12, 0.12), "Head",     MAT_ARMOR),
-    # ── Left arm ──
-    ("ellipsoid",    (-0.30, 1.24, 0),   (0.070, 0.070, 0.070), "ArmL",     MAT_JOINT),
-    ("socketed",     (-0.30, 1.05, 0),   (0.070, 0.108),        "ArmL",     MAT_FRAME),
-    ("ellipsoid",    (-0.30, 0.895, 0),  (0.055, 0.055, 0.055), "ForearmL", MAT_JOINT),
-    ("socketed",     (-0.30, 0.74, 0),   (0.062, 0.108),        "ForearmL", MAT_FRAME),
-    # ── Right arm ──
-    ("ellipsoid",    (0.30, 1.24, 0),    (0.070, 0.070, 0.070), "ArmR",     MAT_JOINT),
-    ("socketed",     (0.30, 1.05, 0),    (0.070, 0.108),        "ArmR",     MAT_FRAME),
-    ("ellipsoid",    (0.30, 0.895, 0),   (0.055, 0.055, 0.055), "ForearmR", MAT_JOINT),
-    ("socketed",     (0.30, 0.74, 0),    (0.062, 0.108),        "ForearmR", MAT_FRAME),
+    ("ellipsoid",    (0, 1.55, 0),       (0.11, 0.11, 0.11), "Head",     MAT_ARMOR),
+    # ── Left arm — slim ──
+    ("ellipsoid",    (-0.30, 1.24, 0),   (0.065, 0.065, 0.065), "ArmL",     MAT_JOINT),
+    ("socketed",     (-0.30, 1.05, 0),   (0.065, 0.108),        "ArmL",     MAT_FRAME),
+    ("ellipsoid",    (-0.30, 0.895, 0),  (0.052, 0.052, 0.052), "ForearmL", MAT_JOINT),
+    ("socketed",     (-0.30, 0.74, 0),   (0.058, 0.108),        "ForearmL", MAT_FRAME),
+    # ── Right arm — slim ──
+    ("ellipsoid",    (0.30, 1.24, 0),    (0.065, 0.065, 0.065), "ArmR",     MAT_JOINT),
+    ("socketed",     (0.30, 1.05, 0),    (0.065, 0.108),        "ArmR",     MAT_FRAME),
+    ("ellipsoid",    (0.30, 0.895, 0),   (0.052, 0.052, 0.052), "ForearmR", MAT_JOINT),
+    ("socketed",     (0.30, 0.74, 0),    (0.058, 0.108),        "ForearmR", MAT_FRAME),
     # ── Left leg ──
-    ("ellipsoid",    (-0.12, 0.79, 0),   (0.069, 0.069, 0.069), "LegL",  MAT_JOINT),
-    ("socketed",     (-0.12, 0.58, 0),   (0.092, 0.13),         "LegL",  MAT_FRAME),
-    ("ellipsoid",    (-0.12, 0.385, 0),  (0.058, 0.058, 0.058), "ShinL", MAT_JOINT),
-    ("socketed",     (-0.12, 0.18, 0),   (0.081, 0.14),         "ShinL", MAT_FRAME),
+    ("ellipsoid",    (-0.12, 0.79, 0),   (0.066, 0.066, 0.066), "LegL",  MAT_JOINT),
+    ("socketed",     (-0.12, 0.58, 0),   (0.088, 0.13),         "LegL",  MAT_FRAME),
+    ("ellipsoid",    (-0.12, 0.385, 0),  (0.055, 0.055, 0.055), "ShinL", MAT_JOINT),
+    ("socketed",     (-0.12, 0.18, 0),   (0.078, 0.14),         "ShinL", MAT_FRAME),
     # ── Right leg ──
-    ("ellipsoid",    (0.12, 0.79, 0),    (0.069, 0.069, 0.069), "LegR",  MAT_JOINT),
-    ("socketed",     (0.12, 0.58, 0),    (0.092, 0.13),         "LegR",  MAT_FRAME),
-    ("ellipsoid",    (0.12, 0.385, 0),   (0.058, 0.058, 0.058), "ShinR", MAT_JOINT),
-    ("socketed",     (0.12, 0.18, 0),    (0.081, 0.14),         "ShinR", MAT_FRAME),
-    # ── Feet (Extremity) ──
-    ("ellipsoid",    (-0.12, -0.09, 0),  (0.09, 0.09, 0.09),   "FootL", MAT_EXTREM),
-    ("ellipsoid",    (0.12, -0.09, 0),   (0.09, 0.09, 0.09),   "FootR", MAT_EXTREM),
-    # ── Fists (Extremity) ──
-    ("rounded_box",  (-0.30, 0.55, 0),   (0.06, 0.05, 0.07),   "FistL", MAT_EXTREM),
-    ("rounded_box",  (0.30, 0.55, 0),    (0.06, 0.05, 0.07),   "FistR", MAT_EXTREM),
+    ("ellipsoid",    (0.12, 0.79, 0),    (0.066, 0.066, 0.066), "LegR",  MAT_JOINT),
+    ("socketed",     (0.12, 0.58, 0),    (0.088, 0.13),         "LegR",  MAT_FRAME),
+    ("ellipsoid",    (0.12, 0.385, 0),   (0.055, 0.055, 0.055), "ShinR", MAT_JOINT),
+    ("socketed",     (0.12, 0.18, 0),    (0.078, 0.14),         "ShinR", MAT_FRAME),
+    # ── Feet (Extremity) — compact ──
+    ("ellipsoid",    (-0.12, -0.09, 0),  (0.085, 0.085, 0.085), "FootL", MAT_EXTREM),
+    ("ellipsoid",    (0.12, -0.09, 0),   (0.085, 0.085, 0.085), "FootR", MAT_EXTREM),
+    # ── Fists (Extremity) — tight ──
+    ("rounded_box",  (-0.30, 0.55, 0),   (0.055, 0.045, 0.065), "FistL", MAT_EXTREM),
+    ("rounded_box",  (0.30, 0.55, 0),    (0.055, 0.045, 0.065), "FistR", MAT_EXTREM),
     # ── Reactor Housing (Extremity) ──
     ("ring",         (0, 1.21, 0.14),    (0.055, 0.015),        "Spine", MAT_EXTREM),
     # ── Reactor Orb (ReactorCore — emissive) ──
     ("ellipsoid",    (0, 1.21, 0.12),    (0.035, 0.035, 0.035), "Spine", MAT_REACTOR),
 ]
+
+BODY_PARTS_BOMBER = [
+    # ── Torso (Armor) — wide, thick, heavy ──
+    ("rounded_box",  (0, 0.88, 0),       (0.27, 0.13, 0.18), "Hips",     MAT_ARMOR),
+    ("rounded_box",  (0, 1.03, 0),       (0.20, 0.05, 0.15), "Spine",    MAT_ARMOR),
+    ("rounded_box",  (0, 1.21, 0),       (0.30, 0.16, 0.19), "Spine",    MAT_ARMOR),
+    # ── Head (Armor) — slightly larger ──
+    ("ellipsoid",    (0, 1.55, 0),       (0.14, 0.14, 0.14), "Head",     MAT_ARMOR),
+    # ── Shoulder Pauldrons (Armor) — wide protective plates on Spine ──
+    ("rounded_box",  (-0.36, 1.30, 0),   (0.10, 0.06, 0.10), "Spine",    MAT_ARMOR),
+    ("rounded_box",  (0.36, 1.30, 0),    (0.10, 0.06, 0.10), "Spine",    MAT_ARMOR),
+    # ── Artillery Mount (Extremity) — raised rear structure on Spine ──
+    ("rounded_box",  (0, 1.48, -0.10),   (0.08, 0.10, 0.07), "Spine",    MAT_EXTREM),
+    ("socketed",     (0, 1.62, -0.08),   (0.045, 0.06),      "Spine",    MAT_FRAME),
+    ("ellipsoid",    (0, 1.70, -0.06),   (0.035, 0.035, 0.035), "Spine", MAT_JOINT),
+    # ── Left arm — thick ──
+    ("ellipsoid",    (-0.30, 1.24, 0),   (0.090, 0.090, 0.090), "ArmL",     MAT_JOINT),
+    ("socketed",     (-0.30, 1.05, 0),   (0.085, 0.108),        "ArmL",     MAT_FRAME),
+    ("ellipsoid",    (-0.30, 0.895, 0),  (0.070, 0.070, 0.070), "ForearmL", MAT_JOINT),
+    ("socketed",     (-0.30, 0.74, 0),   (0.078, 0.108),        "ForearmL", MAT_FRAME),
+    # ── Right arm — thick ──
+    ("ellipsoid",    (0.30, 1.24, 0),    (0.090, 0.090, 0.090), "ArmR",     MAT_JOINT),
+    ("socketed",     (0.30, 1.05, 0),    (0.085, 0.108),        "ArmR",     MAT_FRAME),
+    ("ellipsoid",    (0.30, 0.895, 0),   (0.070, 0.070, 0.070), "ForearmR", MAT_JOINT),
+    ("socketed",     (0.30, 0.74, 0),    (0.078, 0.108),        "ForearmR", MAT_FRAME),
+    # ── Left leg — heavy ──
+    ("ellipsoid",    (-0.12, 0.79, 0),   (0.085, 0.085, 0.085), "LegL",  MAT_JOINT),
+    ("socketed",     (-0.12, 0.58, 0),   (0.110, 0.13),         "LegL",  MAT_FRAME),
+    ("ellipsoid",    (-0.12, 0.385, 0),  (0.072, 0.072, 0.072), "ShinL", MAT_JOINT),
+    ("socketed",     (-0.12, 0.18, 0),   (0.098, 0.14),         "ShinL", MAT_FRAME),
+    # ── Right leg — heavy ──
+    ("ellipsoid",    (0.12, 0.79, 0),    (0.085, 0.085, 0.085), "LegR",  MAT_JOINT),
+    ("socketed",     (0.12, 0.58, 0),    (0.110, 0.13),         "LegR",  MAT_FRAME),
+    ("ellipsoid",    (0.12, 0.385, 0),   (0.072, 0.072, 0.072), "ShinR", MAT_JOINT),
+    ("socketed",     (0.12, 0.18, 0),    (0.098, 0.14),         "ShinR", MAT_FRAME),
+    # ── Feet (Extremity) — big, stable platform ──
+    ("ellipsoid",    (-0.12, -0.09, 0),  (0.12, 0.10, 0.12),   "FootL", MAT_EXTREM),
+    ("ellipsoid",    (0.12, -0.09, 0),   (0.12, 0.10, 0.12),   "FootR", MAT_EXTREM),
+    # ── Fists (Extremity) — heavy sluggers ──
+    ("rounded_box",  (-0.30, 0.55, 0),   (0.08, 0.07, 0.09),   "FistL", MAT_EXTREM),
+    ("rounded_box",  (0.30, 0.55, 0),    (0.08, 0.07, 0.09),   "FistR", MAT_EXTREM),
+    # ── Reactor Housing (Extremity) ──
+    ("ring",         (0, 1.21, 0.14),    (0.055, 0.015),        "Spine", MAT_EXTREM),
+    # ── Reactor Orb (ReactorCore — emissive) ──
+    ("ellipsoid",    (0, 1.21, 0.12),    (0.035, 0.035, 0.035), "Spine", MAT_REACTOR),
+]
+
+# Backward-compat alias — default body parts (dogfighter)
+BODY_PARTS = BODY_PARTS_DOGFIGHTER
 
 # ─── Material Definitions (glTF PBR) ─────────────────────────────────────
 MATERIALS = [
@@ -146,6 +198,67 @@ MATERIALS = [
     },
     {   # 4: ReactorCore — magical ember orb
         #   Deep warm glow like molten glass trapped in clay.
+        "name": "ReactorCore",
+        "doubleSided": True,
+        "emissiveFactor": [1.0, 0.5, 0.12],
+        "pbrMetallicRoughness": {
+            "baseColorFactor": [0.12, 0.04, 0.01, 1.0],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.15,
+        },
+        "extensions": {
+            "KHR_materials_emissive_strength": {
+                "emissiveStrength": 2.0
+            }
+        },
+    },
+]
+
+# Bomber materials — cooler, darker, iron/steel feel
+MATERIALS_BOMBER = [
+    {   # 0: Armor — dark iron plates
+        "name": "Armor",
+        "doubleSided": True,
+        "pbrMetallicRoughness": {
+            "baseColorFactor": [0.25, 0.22, 0.20, 1.0],
+            "metallicFactor": 0.15,
+            "roughnessFactor": 0.5,
+        },
+    },
+    {   # 1: Frame — gunmetal raw stock
+        "name": "Frame",
+        "doubleSided": True,
+        "pbrMetallicRoughness": {
+            "baseColorFactor": [0.18, 0.16, 0.14, 1.0],
+            "metallicFactor": 0.1,
+            "roughnessFactor": 0.75,
+        },
+    },
+    {   # 2: Joint — dark stone, same emissive system
+        "name": "Joint",
+        "doubleSided": True,
+        "emissiveFactor": [1.0, 0.5, 0.12],
+        "pbrMetallicRoughness": {
+            "baseColorFactor": [0.08, 0.06, 0.05, 1.0],
+            "metallicFactor": 0.05,
+            "roughnessFactor": 0.3,
+        },
+        "extensions": {
+            "KHR_materials_emissive_strength": {
+                "emissiveStrength": 2.0
+            }
+        },
+    },
+    {   # 3: Extremity — hardened dark steel
+        "name": "Extremity",
+        "doubleSided": True,
+        "pbrMetallicRoughness": {
+            "baseColorFactor": [0.14, 0.12, 0.10, 1.0],
+            "metallicFactor": 0.1,
+            "roughnessFactor": 0.55,
+        },
+    },
+    {   # 4: ReactorCore — same ember orb (shared system)
         "name": "ReactorCore",
         "doubleSided": True,
         "emissiveFactor": [1.0, 0.5, 0.12],
@@ -740,25 +853,34 @@ def generate_glyph_texture(size=256):
     return make_png(size, size, bytes(pixels))
 
 
-def build_gltf():
-    """Assemble the complete glTF dict with embedded binary buffer."""
+def build_gltf(body_parts=None, materials=None):
+    """Assemble the complete glTF dict with embedded binary buffer.
+
+    body_parts: list of (shape, center, dims, bone_name, material) tuples.
+                Defaults to BODY_PARTS_DOGFIGHTER.
+    materials:  list of glTF material dicts.  Defaults to MATERIALS.
+    """
+    if body_parts is None:
+        body_parts = BODY_PARTS_DOGFIGHTER
+    if materials is None:
+        materials = MATERIALS
     bb = BufferBuilder()
 
-    # ── Build per-material mesh primitives ────────────────────────
+    # ── Build per-material mesh primitives ────────────────────
     shape_fn = {
         "box": make_box, "rounded_box": make_rounded_box,
         "ellipsoid": make_ellipsoid, "socketed": make_socketed_limb,
         "ring": make_ring,
     }
 
-    mat_indices = sorted(set(part[4] for part in BODY_PARTS))
+    mat_indices = sorted(set(part[4] for part in body_parts))
     primitives = []
 
     for mat_idx in mat_indices:
         grp_pos, grp_norm, grp_uvs, grp_idx = [], [], [], []
         grp_joints, grp_weights = [], []
 
-        for shape, center, dims, bone_name, m in BODY_PARTS:
+        for shape, center, dims, bone_name, m in body_parts:
             if m != mat_idx:
                 continue
             bone_idx = BONE_ORDER.index(bone_name)
@@ -1327,7 +1449,7 @@ def build_gltf():
             "joints": [bone_node[n] for n in BONE_ORDER],
             "skeleton": BONE_START,
         }],
-        "materials": MATERIALS,
+        "materials": materials,
         "animations": [
             {
                 "name": name,
@@ -1352,10 +1474,24 @@ def build_gltf():
     }
 
 
-def main():
-    gltf = build_gltf()
-    output = "character.gltf"
+# ─── Chassis Configurations ──────────────────────────────────────────────────
 
+CHASSIS_CONFIGS = {
+    "dogfighter": {
+        "body_parts": BODY_PARTS_DOGFIGHTER,
+        "materials": MATERIALS,
+        "output": "character_dogfighter.gltf",
+    },
+    "bomber": {
+        "body_parts": BODY_PARTS_BOMBER,
+        "materials": MATERIALS_BOMBER,
+        "output": "character_bomber.gltf",
+    },
+}
+
+
+def _write_gltf(gltf, output):
+    """Write a glTF dict to file and print summary."""
     with open(output, "w") as f:
         json.dump(gltf, f, indent=2)
 
@@ -1372,7 +1508,32 @@ def main():
     print(f"   Buffer:    {gltf['buffers'][0]['byteLength']} bytes")
     anim_names = [a["name"] for a in gltf["animations"]]
     print(f"   Animations: {len(anim_names)} ({', '.join(anim_names)})")
-    print(f"\nDrop this into your Godot project and it'll auto-import!")
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate procedural mech glTF models.")
+    parser.add_argument(
+        "--chassis", choices=["dogfighter", "bomber"],
+        default=None,
+        help="Generate a specific chassis. Omit to generate all.",
+    )
+    args = parser.parse_args()
+
+    targets = [args.chassis] if args.chassis else ["dogfighter", "bomber"]
+
+    for chassis_name in targets:
+        cfg = CHASSIS_CONFIGS[chassis_name]
+        gltf = build_gltf(body_parts=cfg["body_parts"], materials=cfg["materials"])
+        _write_gltf(gltf, cfg["output"])
+
+    # Backward compat: character.gltf is always the dogfighter
+    if not args.chassis or args.chassis == "dogfighter":
+        import shutil
+        shutil.copy2("character_dogfighter.gltf", "character.gltf")
+        print("\n[OK] Copied character_dogfighter.gltf -> character.gltf (backward compat)")
+
+    print(f"\nDrop these into your Godot project and they'll auto-import!")
 
 
 if __name__ == "__main__":

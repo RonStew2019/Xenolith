@@ -74,12 +74,19 @@ func _ready() -> void:
 	_setup_reactor_glow()
 
 
-# ── Character & Animation Setup ──────────────────────────────────────────
+# ── Character & Animation Setup ──────────────────────────────────────────────────────────
+
+## Override in subclasses to select a chassis-specific model.
+## Default returns the original character.gltf (dogfighter).
+func _get_model_path() -> String:
+	return "res://character.gltf"
+
 
 func _setup_character() -> void:
-	var char_scene := load("res://character.gltf") as PackedScene
+	var model_path := _get_model_path()
+	var char_scene := load(model_path) as PackedScene
 	if not char_scene:
-		push_error("CharacterBase: failed to load res://character.gltf")
+		push_error("CharacterBase: failed to load %s" % model_path)
 		return
 	_character = char_scene.instantiate()
 	_character.rotation.y = PI  # glTF faces +Z, Godot forward is -Z

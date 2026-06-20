@@ -13,9 +13,10 @@ class_name MechBody
 ##   • [b]AI[/b] — idle with gravity.  An [AIController] can be attached
 ##     later for autonomous combat behavior.
 ##
-## The procedural character model ([code]character.gltf[/code]) is loaded
-## by [CharacterBase._setup_character].  All chassis types share the same
-## model for now; per-chassis visuals arrive in a later phase.
+## The procedural character model is loaded by [CharacterBase._setup_character].
+## Each chassis type loads a distinct glTF model via [method _get_model_path]:
+## [code]character_dogfighter.gltf[/code] (lean) or
+## [code]character_bomber.gltf[/code] (bulky, artillery mount).
 ##
 ## [b]Lifecycle:[/b] Call [method init] BEFORE adding this node to the
 ## scene tree so [method _ready] can read the blueprint and configure the
@@ -75,6 +76,17 @@ func init(bp: MechBlueprint, pilot: bool) -> void:
 	display_name = bp.blueprint_name if bp else &""
 	if bp and bp.chassis:
 		speed = bp.chassis.base_speed
+
+
+## Select the chassis-specific glTF model based on the blueprint.
+func _get_model_path() -> String:
+	if blueprint and blueprint.chassis:
+		match blueprint.chassis.chassis_name:
+			&"Dogfighter":
+				return "res://character_dogfighter.gltf"
+			&"Bomber":
+				return "res://character_bomber.gltf"
+	return "res://character_dogfighter.gltf"
 
 
 # -- Lifecycle -------------------------------------------------------------

@@ -152,10 +152,10 @@ These existing systems carry forward largely intact:
   - [x] Long-range weapons (bomber focus) — adapt projectile system
   - [x] Artillery weapon (bomber exclusive) — high damage, slow, AoE?
   - [ ] Special status effect weapons can come later (not primary concern)
-- [ ] **Procedural mech models**
-  - [ ] Extend `generate_character.py` for dogfighter silhouette
-  - [ ] Extend for bomber silhouette (bulkier, artillery mount)
-  - [ ] Visual distinction between chassis types
+- [x] **Procedural mech models**
+  - [x] Extend `generate_character.py` for dogfighter silhouette
+  - [x] Extend for bomber silhouette (bulkier, artillery mount)
+  - [x] Visual distinction between chassis types
 - [ ] **AI mech behavior**
   - [ ] Dogfighter AI (close gap, strafe, stay nimble)
   - [ ] Bomber AI (maintain distance, line up artillery shots)
