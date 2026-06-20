@@ -21,8 +21,18 @@ static func create_weapon(weapon_id: StringName, _slot_name: StringName) -> Abil
 	match weapon_id:
 		&"punch_amplifier":
 			return PunchAmplifierAbility.new()
+		&"thermal_fist":
+			return ThermalFistAbility.new()
 		&"heat_cannon":
 			return HeatCannonAbility.new()
+		&"blaster":
+			return BlasterAbility.new()
+		&"scatter_blaster":
+			return ScatterBlasterAbility.new()
+		&"mortar":
+			return MortarAbility.new()
+		&"artillery_mortar":
+			return ArtilleryMortarAbility.new()
 		_:
 			push_warning("WeaponRegistry: unknown weapon_id '%s'" % weapon_id)
 			return null

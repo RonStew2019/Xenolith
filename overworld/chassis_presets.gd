@@ -42,14 +42,23 @@ static func basic_dogfighter_blueprint() -> MechBlueprint:
 	var bp := MechBlueprint.new()
 	bp.blueprint_name = &"Basic Dogfighter"
 	bp.chassis = dogfighter_chassis()
-	bp.weapon_assignments = {&"l_hand": &"punch_amplifier", &"r_hand": &"punch_amplifier"}
+	bp.weapon_assignments = {
+		&"l_hand": &"punch_amplifier",
+		&"r_hand": &"punch_amplifier",
+		&"l_shoulder": &"scatter_blaster",
+		&"r_shoulder": &"scatter_blaster",
+	}
 	return bp
 
 
-## A bare-bones bomber — punch amplifiers on both hands.
+## A bare-bones bomber — punch amplifiers on hands, artillery mortar.
 static func basic_bomber_blueprint() -> MechBlueprint:
 	var bp := MechBlueprint.new()
 	bp.blueprint_name = &"Basic Bomber"
 	bp.chassis = bomber_chassis()
-	bp.weapon_assignments = {&"l_hand": &"punch_amplifier", &"r_hand": &"punch_amplifier"}
+	bp.weapon_assignments = {
+		&"l_hand": &"punch_amplifier",
+		&"r_hand": &"punch_amplifier",
+		&"artillery": &"artillery_mortar",
+	}
 	return bp

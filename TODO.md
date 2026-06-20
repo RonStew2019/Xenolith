@@ -146,11 +146,11 @@ These existing systems carry forward largely intact:
   - [x] L-Shoulder, R-Shoulder slots (dogfighter only)
   - [x] Artillery slot (bomber only)
   - [x] Weapons as abilities mapped to slots
-- [ ] **Weapons (heat-focused)**
-  - [ ] Most weapons = "empty" status effects that just add heat
-  - [ ] Short-range weapons (dogfighter bread & butter) — adapt melee/punch system
-  - [ ] Long-range weapons (bomber focus) — adapt projectile system
-  - [ ] Artillery weapon (bomber exclusive) — high damage, slow, AoE?
+- [x] **Weapons (heat-focused)**
+  - [x] Most weapons = "empty" status effects that just add heat
+  - [x] Short-range weapons (dogfighter bread & butter) — adapt melee/punch system
+  - [x] Long-range weapons (bomber focus) — adapt projectile system
+  - [x] Artillery weapon (bomber exclusive) — high damage, slow, AoE?
   - [ ] Special status effect weapons can come later (not primary concern)
 - [ ] **Procedural mech models**
   - [ ] Extend `generate_character.py` for dogfighter silhouette
