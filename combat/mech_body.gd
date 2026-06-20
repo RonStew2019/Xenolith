@@ -62,6 +62,9 @@ var _ability_keys: Dictionary = {
 	KEY_2: "ability_2",
 }
 
+## Active AI controller (null when piloted by the player).
+var _active_controller: AIController
+
 
 # -- Initialisation --------------------------------------------------------
 
@@ -98,6 +101,8 @@ func _ready() -> void:
 	_setup_loadout()
 	if is_pilot:
 		_setup_pilot_controls()
+	else:
+		_setup_ai_controller()
 
 
 func _create_collision_shape() -> void:
@@ -136,6 +141,37 @@ func _get_slot_input_map() -> Dictionary:
 			return BOMBER_SLOT_INPUTS.duplicate()
 		_:
 			return {}
+
+
+## Attach the appropriate AI controller based on chassis type.
+## Called from [method _ready] when [member is_pilot] is false.
+func _setup_ai_controller() -> void:
+	if blueprint == null or blueprint.chassis == null:
+		return
+	var controller: AIController
+	match blueprint.chassis.chassis_name:
+		&"Dogfighter":
+			controller = DogfighterAI.new()
+		&"Bomber":
+			controller = BomberAI.new()
+		_:
+			controller = DogfighterAI.new()
+	set_controller(controller)
+
+
+## Hot-swap the active AI controller (same pattern as
+## [method CloneMech.set_controller]).  Pass [code]null[/code] to detach
+## without replacement (e.g. before switching to player-piloted mode).
+func set_controller(new_controller: AIController) -> void:
+	if _active_controller:
+		_active_controller.on_exit()
+		_active_controller.queue_free()
+		_active_controller = null
+	if new_controller:
+		_active_controller = new_controller
+		new_controller.host = self
+		add_child(new_controller)
+		new_controller.on_enter()
 
 
 func _build_key_labels() -> Dictionary:
@@ -202,6 +238,8 @@ func _teardown_pilot_controls() -> void:
 func enable_pilot_controls() -> void:
 	if is_pilot:
 		return
+	# Detach AI controller before switching to player mode.
+	set_controller(null)
 	is_pilot = true
 	_setup_pilot_controls()
 
@@ -295,6 +333,10 @@ func _on_stride_updated(stride_val: float) -> void:
 
 func _on_died() -> void:
 	_teardown_pilot_controls()
+	if _active_controller:
+		_active_controller.on_exit()
+		_active_controller.queue_free()
+		_active_controller = null
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
@@ -359,5 +401,8 @@ func _physics_process(delta: float) -> void:
 
 		_apply_movement(direction, delta)
 	else:
-		# AI mode — just apply gravity and idle animation.
-		_apply_movement(Vector3.ZERO, delta)
+		# AI mode — delegate to controller, or idle with gravity.
+		if _active_controller:
+			_active_controller.tick(delta)
+		else:
+			_apply_movement(Vector3.ZERO, delta)

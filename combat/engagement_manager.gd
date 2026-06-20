@@ -95,6 +95,12 @@ var _mechs_lost: int = 0
 ## Total mechs deployed (initial + reserves).
 var _total_deployed: int = 0
 
+## Spawned [FaunaMob] entities in the arena (tracked separately from mechs).
+var _fauna_mobs: Array = []
+
+## Count of fauna kills during this engagement.
+var _fauna_kills: int = 0
+
 
 # -- Lifecycle -------------------------------------------------------------
 
@@ -150,9 +156,17 @@ func begin_engagement(
 		_threat_manager.set_process(false)
 		print("[EngagementManager] ThreatManager paused")
 
+	# -- Team assignment ---------------------------------------------------
+	var enemy_t: CombatTarget = arena.get_enemy_target()
+	if enemy_t:
+		enemy_t.team = 1
+	var carrier_t: CombatTarget = arena.get_player_carrier_target()
+	if carrier_t:
+		carrier_t.team = 0
+
 	# -- Win / lose wiring -------------------------------------------------
-	_connect_win_condition(arena.get_enemy_target())
-	_connect_lose_condition(arena.get_player_carrier_target())
+	_connect_win_condition(enemy_t)
+	_connect_lose_condition(carrier_t)
 
 	# -- Spawn deployed mechs ----------------------------------------------
 	var spawn_points: Array[Vector3] = arena.get_spawn_points()
@@ -161,6 +175,7 @@ func begin_engagement(
 		var is_pilot: bool = (bp == piloted_mech)
 		var spawn_pos: Vector3 = _next_spawn_point(spawn_points)
 		var target: MechBody = _create_mech_target(bp, spawn_pos, is_pilot)
+		target.team = 0  # Player team.
 		arena.add_child(target)
 
 		_deployed_targets.append(target)
@@ -182,6 +197,13 @@ func begin_engagement(
 
 	if _piloted_mech == null:
 		push_warning("[EngagementManager] No piloted mech in deployed array!")
+
+	# -- Spawn fauna mobs for fauna_hive engagements ----------------------
+	_fauna_mobs.clear()
+	_fauna_kills = 0
+	var threat_type: StringName = _threat.get_threat_type() if _threat != null else &""
+	if threat_type == &"fauna_hive":
+		_spawn_fauna(arena)
 
 	print("[EngagementManager] Engagement started — %d mechs vs %s" % [
 		_deployed_targets.size(),
@@ -227,6 +249,7 @@ func deploy_reserve(hangar_index: int) -> bool:
 	var spawn_points: Array[Vector3] = _arena.get_spawn_points()
 	var spawn_pos: Vector3 = _next_spawn_point(spawn_points)
 	var target: MechBody = _create_mech_target(bp, spawn_pos, false)
+	target.team = 0  # Player team.
 	_arena.add_child(target)
 
 	_deployed_targets.append(target)
@@ -367,6 +390,54 @@ func _try_switch_pilot() -> bool:
 	return true
 
 
+# -- Fauna Spawning (private) ---------------------------------------------
+
+## Spawn [FaunaMob] entities near the enemy hive for fauna_hive engagements.
+## Fauna count scales with the hive's [member FaunaHive.swarm_strength].
+func _spawn_fauna(arena: CombatArena) -> void:
+	var ss: float = 1.0
+	if _threat != null and _threat.get("swarm_strength") != null:
+		ss = _threat.swarm_strength
+	var fauna_count: int = clampi(int(ss * 4.0), 2, 8)
+	var hp: float = ss * 40.0
+	var fauna_speed: float = 7.0
+
+	# Place fauna near the enemy (negative Z in arena).
+	var enemy_pos: Vector3 = arena.get_enemy_target().position if arena.get_enemy_target() != null else Vector3(0.0, 0.0, -CombatArena.SPAWN_OFFSET_Z)
+
+	for i: int in range(fauna_count):
+		var fauna := FaunaMob.new()
+		fauna.name = "Fauna_%d" % i
+		fauna.init(&"Fauna Creature", hp, fauna_speed)
+
+		# Spread fauna around the hive with some randomness.
+		var angle: float = TAU * float(i) / float(fauna_count)
+		var offset: float = randf_range(3.0, 6.0)
+		var spawn_pos := Vector3(
+			enemy_pos.x + cos(angle) * offset,
+			0.0,
+			enemy_pos.z + sin(angle) * offset,
+		)
+		fauna.position = spawn_pos
+
+		arena.add_child(fauna)
+		_fauna_mobs.append(fauna)
+
+		# Wire up breach handler.
+		fauna.get_reactor().reactor_breached.connect(
+			_on_fauna_breached.bind(fauna)
+		)
+
+	print("[EngagementManager] Spawned %d fauna mobs (HP=%.0f each)" % [fauna_count, hp])
+
+
+func _on_fauna_breached(fauna: FaunaMob) -> void:
+	if not _is_engaged:
+		return
+	_fauna_kills += 1
+	print("[EngagementManager] Fauna killed (%d total)" % _fauna_kills)
+
+
 # -- Resolution (private) -------------------------------------------------
 
 func _resolve_victory() -> void:
@@ -415,6 +486,8 @@ func _resolve_defeat() -> void:
 func _cleanup() -> void:
 	_deployed_targets.clear()
 	_deployed_blueprints.clear()
+	_fauna_mobs.clear()
+	_fauna_kills = 0
 	_piloted_mech = null
 	_piloted_blueprint = null
 	_arena = null

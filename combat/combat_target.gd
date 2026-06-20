@@ -27,6 +27,10 @@ var _dead: bool = false
 ## Human-readable name for UI / debug (e.g. "Player Carrier", threat name).
 var display_name: StringName = &""
 
+## Team affiliation for friend/foe filtering.
+## 0 = player side, 1 = enemy side.
+var team: int = 0
+
 ## Cached reference to the child [ReactorCore].
 var _reactor: ReactorCore = null
 

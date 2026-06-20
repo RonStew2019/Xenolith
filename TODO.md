@@ -156,10 +156,10 @@ These existing systems carry forward largely intact:
   - [x] Extend `generate_character.py` for dogfighter silhouette
   - [x] Extend for bomber silhouette (bulkier, artillery mount)
   - [x] Visual distinction between chassis types
-- [ ] **AI mech behavior**
-  - [ ] Dogfighter AI (close gap, strafe, stay nimble)
-  - [ ] Bomber AI (maintain distance, line up artillery shots)
-  - [ ] Fauna AI (simpler, aggressive swarm behavior)
+- [x] **AI mech behavior**
+  - [x] Dogfighter AI (close gap, strafe, stay nimble)
+  - [x] Bomber AI (maintain distance, line up artillery shots)
+  - [x] Fauna AI (simpler, aggressive swarm behavior)
 - [ ] **Carrier combat target**
   - [ ] Carrier as destructible entity in combat arena
   - [ ] Reactor as targetable weak point

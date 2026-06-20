@@ -14,6 +14,10 @@ signal melee_strike(event: MeleeEvent)
 @export var rotation_speed: float = 10.0
 @export var punch_reach: float = 2.5
 @export var punch_weight: float = 50.0
+
+## Team affiliation for friend/foe filtering.
+## 0 = player side, 1 = enemy side.  AI controllers skip same-team targets.
+var team: int = 0
 ## Seconds into a swing before the hit-check fires (matches animation apex).
 ## Used by [method _schedule_punch_hit]; subclasses with no swing animation
 ## can still call it — the hit just resolves immediately when delay <= 0.
