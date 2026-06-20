@@ -111,11 +111,11 @@ These existing systems carry forward largely intact:
   - [x] Threat types: fauna (early game), enemy carriers (mid/late)
   - [x] Enemy carrier AI — stronger = slower, weaker = faster (guerilla incentive)
   - [x] Fauna hive/nest as destroyable objective
-- [ ] **Deployment flow**
-  - [ ] Engagement trigger → deployment screen
-  - [ ] Choose which mechs from hangar to deploy (costs resources)
-  - [ ] Choose which mech YOU pilot
-  - [ ] Deploy into combat arena
+- [x] **Deployment flow**
+  - [x] Engagement trigger → deployment screen
+  - [x] Choose which mechs from hangar to deploy (costs resources)
+  - [x] Choose which mech YOU pilot
+  - [x] Deploy into combat arena
 - [ ] **Combat arena generation**
   - [ ] Arena reflects terrain type of the hex (jungle = dense, desert = open, etc.)
   - [ ] Enemy carrier / hive placed as objective

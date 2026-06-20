@@ -1,10 +1,12 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://overworld/hex_grid.gd" id="1"]
 [ext_resource type="Script" path="res://overworld/carrier.gd" id="2"]
 [ext_resource type="Script" path="res://overworld/overworld_camera.gd" id="3"]
 [ext_resource type="Script" path="res://ui/carrier_customization_ui.gd" id="4"]
 [ext_resource type="Script" path="res://overworld/threat_manager.gd" id="5"]
+[ext_resource type="Script" path="res://overworld/deployment_manager.gd" id="6"]
+[ext_resource type="Script" path="res://ui/deployment_ui.gd" id="7"]
 
 [node name="HexOverworld" type="Node3D"]
 
@@ -30,3 +32,9 @@ script = ExtResource("5")
 
 [node name="CarrierCustomizationUI" type="CanvasLayer" parent="."]
 script = ExtResource("4")
+
+[node name="DeploymentManager" type="Node" parent="."]
+script = ExtResource("6")
+
+[node name="DeploymentUI" type="CanvasLayer" parent="."]
+script = ExtResource("7")
