@@ -140,12 +140,12 @@ These existing systems carry forward largely intact:
   - [x] Dogfighter CharacterBody3D (fast, nimble — adapt existing player controller)
   - [x] Bomber CharacterBody3D (slow, tanky)
   - [x] Chassis determines: speed, max heat, base armor, weapon slots
-- [ ] **Weapon slot system**
-  - [ ] Rework Loadout to be slot-based per chassis
-  - [ ] L-Hand, R-Hand slots (both chassis)
-  - [ ] L-Shoulder, R-Shoulder slots (dogfighter only)
-  - [ ] Artillery slot (bomber only)
-  - [ ] Weapons as abilities mapped to slots
+- [x] **Weapon slot system**
+  - [x] Rework Loadout to be slot-based per chassis
+  - [x] L-Hand, R-Hand slots (both chassis)
+  - [x] L-Shoulder, R-Shoulder slots (dogfighter only)
+  - [x] Artillery slot (bomber only)
+  - [x] Weapons as abilities mapped to slots
 - [ ] **Weapons (heat-focused)**
   - [ ] Most weapons = "empty" status effects that just add heat
   - [ ] Short-range weapons (dogfighter bread & butter) — adapt melee/punch system
