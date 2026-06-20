@@ -20,6 +20,12 @@ signal deployment_launched(threat: ThreatEntity, deployed_mechs: Array[MechBluep
 ## Player chose to retreat instead of fighting.
 signal deployment_retreated(threat: ThreatEntity)
 
+## Combat arena has been created and the player is in combat.
+signal combat_started(arena: CombatArena)
+
+## Combat has ended and the overworld is restored.
+signal combat_ended()
+
 # -- Constants -------------------------------------------------------------
 
 ## Fuel cost per mech deployed into combat.
@@ -42,6 +48,9 @@ var _pilot_index: int = -1
 
 ## Whether the deployment flow is currently active.
 var _is_deploying: bool = false
+
+## The active combat arena instance, or null when not in combat.
+var _arena: CombatArena = null
 
 ## Reference to the threat manager (auto-discovered).
 var _threat_manager: ThreatManager = null
@@ -193,8 +202,29 @@ func launch() -> void:
 	deployed_mechs.reverse()
 
 	var threat: ThreatEntity = _current_threat
-	print("[DeploymentManager] LAUNCHED into combat! (arena not yet implemented)")
+
+	# --- Combat Arena Transition ---
+	var terrain_type: HexCell.TerrainType = HexCell.TerrainType.MOUNTAIN
+	if threat.hex_grid != null:
+		var hex: HexCell = threat.hex_grid.get_cell(threat.current_hex.x, threat.current_hex.y)
+		if hex != null:
+			terrain_type = hex.terrain
+
+	_arena = CombatArena.new()
+	_arena.setup(terrain_type, threat, carrier)
+
+	# Hide all overworld siblings so only the arena is visible.
+	var parent_node: Node = get_parent()
+	if parent_node != null:
+		for child: Node in parent_node.get_children():
+			if child is Node3D and child != _arena:
+				(child as Node3D).visible = false
+		parent_node.add_child(_arena)
+
+	var terrain_name: String = HexCell.TerrainType.keys()[terrain_type]
+	print("[DeploymentManager] LAUNCHED into combat arena! Terrain: %s" % terrain_name)
 	deployment_launched.emit(threat, deployed_mechs, piloted_mech)
+	combat_started.emit(_arena)
 	_end_deployment()
 
 
@@ -210,6 +240,24 @@ func retreat() -> void:
 	print("[DeploymentManager] Retreated from threat")
 	deployment_retreated.emit(threat)
 	_end_deployment()
+
+## End the current combat, tear down the arena, and restore the overworld.
+##
+## Stubbed for future engagement resolution — currently just cleans up.
+func end_combat() -> void:
+	if _arena == null:
+		return
+	# Show all overworld siblings again.
+	var parent_node: Node = get_parent()
+	if parent_node != null:
+		for child: Node in parent_node.get_children():
+			if child is Node3D and child != _arena:
+				(child as Node3D).visible = true
+	_arena.queue_free()
+	_arena = null
+	print("[DeploymentManager] Combat ended — returning to overworld")
+	combat_ended.emit()
+
 
 # -- Private ---------------------------------------------------------------
 

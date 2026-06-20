@@ -116,10 +116,10 @@ These existing systems carry forward largely intact:
   - [x] Choose which mechs from hangar to deploy (costs resources)
   - [x] Choose which mech YOU pilot
   - [x] Deploy into combat arena
-- [ ] **Combat arena generation**
-  - [ ] Arena reflects terrain type of the hex (jungle = dense, desert = open, etc.)
-  - [ ] Enemy carrier / hive placed as objective
-  - [ ] Your carrier present (defend its reactor)
+- [x] **Combat arena generation**
+  - [x] Arena reflects terrain type of the hex (jungle = dense, desert = open, etc.)
+  - [x] Enemy carrier / hive placed as objective
+  - [x] Your carrier present (defend its reactor)
 - [ ] **Mid-engagement mechanics**
   - [ ] Deploy reserve mechs from hangar during combat
   - [ ] When your mech is destroyed → choose another deployed mech to pilot
