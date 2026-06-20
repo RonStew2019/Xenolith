@@ -62,12 +62,16 @@ func get_reactor() -> Node:
 ## [method _ready] observes the final values.
 ##
 ## [param p_max_integrity] — reactor integrity ceiling.[br]
-## [param p_max_heat] — heat ceiling before overflow starts damaging integrity.
-func setup_reactor(p_max_integrity: float, p_max_heat: float) -> ReactorCore:
+## [param p_max_heat] — heat ceiling before overflow starts damaging integrity.[br]
+## [param p_armor] — armor rating (0.0–1.0). Reduces incoming positive heat
+## based on the effect's [member StatusEffect.armor_penetration].
+func setup_reactor(p_max_integrity: float, p_max_heat: float,
+		p_armor: float = 0.0) -> ReactorCore:
 	var reactor := ReactorCore.new()
 	reactor.name = "ReactorCore"
 	reactor.max_integrity = p_max_integrity
 	reactor.max_heat = p_max_heat
+	reactor.armor = p_armor
 	# DO NOT set break_on_breach_deletes_host — EngagementManager handles
 	# destruction of arena targets.
 	add_child(reactor)

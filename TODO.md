@@ -160,11 +160,11 @@ These existing systems carry forward largely intact:
   - [x] Dogfighter AI (close gap, strafe, stay nimble)
   - [x] Bomber AI (maintain distance, line up artillery shots)
   - [x] Fauna AI (simpler, aggressive swarm behavior)
-- [ ] **Carrier combat target**
-  - [ ] Carrier as destructible entity in combat arena
-  - [ ] Reactor as targetable weak point
-  - [ ] Automated defense nodes active during combat
-  - [ ] Carrier armor (dogfighters bounce off, bombers penetrate)
+- [x] **Carrier combat target**
+  - [x] Carrier as destructible entity in combat arena
+  - [x] Reactor as targetable weak point
+  - [x] Automated defense nodes active during combat
+  - [x] Carrier armor (dogfighters bounce off, bombers penetrate)
 
 ---
 

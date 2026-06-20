@@ -101,6 +101,14 @@ signal overheat_ended
 
 @export var enable_ambient_venting: bool = true
 
+## Armor rating (0.0–1.0).
+## Reduces incoming positive heat from effects based on the effect's
+## [member StatusEffect.armor_penetration].  An armor of 0.8 blocks 80 %
+## of damage from effects with 0 armor penetration and 0 % from effects
+## with 1.0 armor penetration.  Negative heat (cooling / venting) is
+## never reduced.
+@export var armor: float = 0.0
+
 ## If true, the moment integrity hits zero the reactor bypasses the normal
 ## CharacterBase [code]die()[/code] pipeline and instead tears itself down and
 ## [method Node.queue_free]s its host node directly.  Used by lightweight
@@ -296,7 +304,12 @@ func _on_combat_tick() -> void:
 	var heat_delta := 0.0
 	for effect in snapshot:
 		effect.on_tick(self)
-		heat_delta += effect.heat
+		var effective_heat: float = effect.heat
+		# Armor reduces positive heat based on the effect's armor penetration.
+		# Negative heat (cooling / venting) passes through unmodified.
+		if armor > 0.0 and effective_heat > 0.0:
+			effective_heat *= (1.0 - armor * (1.0 - effect.armor_penetration))
+		heat_delta += effective_heat
 
 	if not is_zero_approx(heat_delta):
 		heat += heat_delta

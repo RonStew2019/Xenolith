@@ -29,4 +29,5 @@ func create_self_effects(user: Node) -> Array:
 
 
 func create_other_effects(user: Node) -> Array:
-	return [PunchEffect.new(50.0, 1, user)]
+	# armor_penetration = 0.9 — bomber artillery pierces carrier armor.
+	return [PunchEffect.new(50.0, 1, user, 0.9)]

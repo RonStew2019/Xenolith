@@ -86,6 +86,21 @@ const HIVE_COLOR: Color = Color(0.6, 0.15, 0.5)
 ## Enemy carrier red (matches EnemyCarrier.ENEMY_COLOR).
 const ENEMY_CARRIER_COLOR: Color = Color(0.8, 0.2, 0.15)
 
+## Warm golden ember for reactor orb visuals (matches mech reactors).
+const REACTOR_ORB_COLOR: Color = Color(1.0, 0.55, 0.18)
+
+## Radius of the reactor orb sphere.
+const REACTOR_ORB_RADIUS: float = 0.5
+
+## Player carrier armor rating — high, shrugs off dogfighter attacks.
+const CARRIER_ARMOR: float = 0.8
+
+## Enemy carrier armor rating — moderate.
+const ENEMY_CARRIER_ARMOR: float = 0.5
+
+## Fauna hive armor — none.
+const FAUNA_HIVE_ARMOR: float = 0.0
+
 # -- State -----------------------------------------------------------------
 
 ## The terrain type this arena was built for.
@@ -291,8 +306,8 @@ func _build_carrier_representation() -> void:
 	body.name = "PlayerCarrier"
 	body.display_name = &"Player Carrier"
 
-	# ReactorCore — high integrity, high max heat.
-	body.setup_reactor(500.0, 500.0)
+	# ReactorCore — high integrity, high max heat, heavy armor.
+	var reactor := body.setup_reactor(500.0, 500.0, CARRIER_ARMOR)
 
 	# Collision.
 	var col := CollisionShape3D.new()
@@ -302,7 +317,7 @@ func _build_carrier_representation() -> void:
 	col.position.y = CARRIER_BOX_SIZE.y / 2.0
 	body.add_child(col)
 
-	# Visual.
+	# Visual — carrier box.
 	var mesh_inst := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = CARRIER_BOX_SIZE
@@ -311,10 +326,62 @@ func _build_carrier_representation() -> void:
 	mesh_inst.material_override = _make_material(CARRIER_COLOR)
 	body.add_child(mesh_inst)
 
+	# Reactor weak-point visual — glowing orb on top of the carrier box.
+	_build_reactor_orb(body, CARRIER_BOX_SIZE.y)
+
+	# Automated defense turrets (from carrier defense modules).
+	if _carrier != null:
+		var defense_modules: Array[CarrierModule] = _carrier.get_modules_by_type(&"defense")
+		var total_defense: float = 0.0
+		for module in defense_modules:
+			total_defense += (module as DefenseModule).defense_strength
+		if total_defense > 0.0:
+			var defense_effect := CarrierDefenseEffect.new(
+				total_defense, 12.0, 0, body
+			)
+			reactor.apply_effect(defense_effect)
+
 	# Place at one end of the arena (positive Z).
 	body.position = Vector3(0.0, 0.0, SPAWN_OFFSET_Z)
 	add_child(body)
 	player_carrier_target = body
+
+
+## Build a glowing reactor orb with a point light on top of the carrier box.
+##
+## [param parent] — the CombatTarget node to attach to.[br]
+## [param base_height] — Y offset for the bottom of the orb (top of the box).
+func _build_reactor_orb(parent: Node3D, base_height: float) -> void:
+	var orb_y: float = base_height + REACTOR_ORB_RADIUS
+
+	# Glowing sphere mesh.
+	var mesh_inst := MeshInstance3D.new()
+	mesh_inst.name = "ReactorOrb"
+	var sphere := SphereMesh.new()
+	sphere.radius = REACTOR_ORB_RADIUS
+	sphere.height = REACTOR_ORB_RADIUS * 2.0
+	mesh_inst.mesh = sphere
+	mesh_inst.position.y = orb_y
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = REACTOR_ORB_COLOR
+	mat.emission_enabled = true
+	mat.emission = REACTOR_ORB_COLOR
+	mat.emission_energy_multiplier = 3.0
+	mat.roughness = 0.2
+	mat.metallic = 0.4
+	mesh_inst.material_override = mat
+	parent.add_child(mesh_inst)
+
+	# Point light so the orb is visible from a distance.
+	var light := OmniLight3D.new()
+	light.name = "ReactorLight"
+	light.light_color = REACTOR_ORB_COLOR
+	light.light_energy = 2.0
+	light.omni_range = 8.0
+	light.omni_attenuation = 1.5
+	light.position.y = orb_y
+	parent.add_child(light)
 
 
 # ==========================================================================
@@ -327,21 +394,21 @@ func _build_enemy_representation() -> void:
 
 	var threat_type: StringName = _threat.get_threat_type() if _threat != null else &""
 
-	# Configure reactor stats and visuals based on threat type.
+	# Configure reactor stats, armor, and visuals based on threat type.
 	if threat_type == &"fauna_hive":
 		var ss: float = _threat.swarm_strength if _threat != null else 1.0
 		body.display_name = _threat.entity_name if _threat != null else &"Fauna Hive"
-		body.setup_reactor(ss * 200.0, ss * 150.0)
+		body.setup_reactor(ss * 200.0, ss * 150.0, FAUNA_HIVE_ARMOR)
 		_build_hive_visual(body)
 	elif threat_type == &"enemy_carrier":
 		var st: float = _threat.strength if _threat != null else 1.0
 		body.display_name = _threat.entity_name if _threat != null else &"Enemy Carrier"
-		body.setup_reactor(st * 250.0, st * 200.0)
+		body.setup_reactor(st * 250.0, st * 200.0, ENEMY_CARRIER_ARMOR)
 		_build_enemy_carrier_visual(body)
 	else:
 		# Fallback — generic red box with default stats.
 		body.display_name = _threat.entity_name if _threat != null else &"Enemy"
-		body.setup_reactor(500.0, 400.0)
+		body.setup_reactor(500.0, 400.0, ENEMY_CARRIER_ARMOR)
 		_build_enemy_carrier_visual(body)
 
 	# Place at the opposite end of the arena (negative Z).

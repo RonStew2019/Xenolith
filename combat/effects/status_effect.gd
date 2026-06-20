@@ -38,6 +38,12 @@ var is_stackable: bool = false
 ## Do subsequent applications reset duration
 var is_refreshable: bool = false
 
+## Armor penetration factor (0.0–1.0).
+## 0.0 = fully affected by target armor (e.g. dogfighter weapons).
+## 1.0 = completely ignores armor (e.g. bomber artillery).
+## Used by [ReactorCore] when calculating effective heat contribution.
+var armor_penetration: float = 0.0
+
 
 func _init(
 	p_name: String = "",
@@ -46,6 +52,7 @@ func _init(
 	p_source: Node = null,
 	p_is_stackable = false,
 	p_is_refreshable: bool = true,
+	p_armor_penetration: float = 0.0,
 ) -> void:
 	effect_name = p_name
 	heat = p_heat
@@ -53,6 +60,7 @@ func _init(
 	source = p_source
 	is_stackable = p_is_stackable
 	is_refreshable = p_is_refreshable
+	armor_penetration = p_armor_penetration
 
 
 ## Called once when the effect is first applied to a reactor.
@@ -108,6 +116,7 @@ func duplicate_for_broadcast(new_source: Node) -> StatusEffect:
 	fresh.duration = duration
 	fresh.is_stackable = is_stackable
 	fresh.is_refreshable = is_refreshable
+	fresh.armor_penetration = armor_penetration
 	fresh.source = new_source
 	# target intentionally left null — ReactorCore.apply_effect sets it.
 	return fresh
