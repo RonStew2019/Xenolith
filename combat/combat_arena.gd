@@ -100,6 +100,12 @@ var _threat: ThreatEntity = null
 ## Reference to the player's carrier.
 var _carrier: Carrier = null
 
+## Combat-pipeline-ready representation of the player's carrier in the arena.
+var player_carrier_target: CombatTarget = null
+
+## Combat-pipeline-ready representation of the enemy (hive or carrier).
+var enemy_target: CombatTarget = null
+
 # -- Public API ------------------------------------------------------------
 
 ## Configure and build the arena.  Call this immediately after [code]new()[/code].
@@ -123,6 +129,16 @@ func get_spawn_points() -> Array[Vector3]:
 ## Return which terrain type this arena was generated for.
 func get_terrain_type() -> HexCell.TerrainType:
 	return _terrain_type
+
+
+## Return the arena's enemy [CombatTarget] (hive or carrier).
+func get_enemy_target() -> CombatTarget:
+	return enemy_target
+
+
+## Return the arena's player-carrier [CombatTarget].
+func get_player_carrier_target() -> CombatTarget:
+	return player_carrier_target
 
 
 ## Stub — ends combat, emits [signal arena_exited].
@@ -271,8 +287,12 @@ func _build_directional_light() -> void:
 # ==========================================================================
 
 func _build_carrier_representation() -> void:
-	var body := StaticBody3D.new()
+	var body := CombatTarget.new()
 	body.name = "PlayerCarrier"
+	body.display_name = &"Player Carrier"
+
+	# ReactorCore — high integrity, high max heat.
+	body.setup_reactor(500.0, 500.0)
 
 	# Collision.
 	var col := CollisionShape3D.new()
@@ -294,6 +314,7 @@ func _build_carrier_representation() -> void:
 	# Place at one end of the arena (positive Z).
 	body.position = Vector3(0.0, 0.0, SPAWN_OFFSET_Z)
 	add_child(body)
+	player_carrier_target = body
 
 
 # ==========================================================================
@@ -301,22 +322,32 @@ func _build_carrier_representation() -> void:
 # ==========================================================================
 
 func _build_enemy_representation() -> void:
-	var body := StaticBody3D.new()
+	var body := CombatTarget.new()
 	body.name = "Enemy"
 
 	var threat_type: StringName = _threat.get_threat_type() if _threat != null else &""
 
+	# Configure reactor stats and visuals based on threat type.
 	if threat_type == &"fauna_hive":
+		var ss: float = _threat.swarm_strength if _threat != null else 1.0
+		body.display_name = _threat.entity_name if _threat != null else &"Fauna Hive"
+		body.setup_reactor(ss * 200.0, ss * 150.0)
 		_build_hive_visual(body)
 	elif threat_type == &"enemy_carrier":
+		var st: float = _threat.strength if _threat != null else 1.0
+		body.display_name = _threat.entity_name if _threat != null else &"Enemy Carrier"
+		body.setup_reactor(st * 250.0, st * 200.0)
 		_build_enemy_carrier_visual(body)
 	else:
-		# Fallback — generic red box.
+		# Fallback — generic red box with default stats.
+		body.display_name = _threat.entity_name if _threat != null else &"Enemy"
+		body.setup_reactor(500.0, 400.0)
 		_build_enemy_carrier_visual(body)
 
 	# Place at the opposite end of the arena (negative Z).
 	body.position = Vector3(0.0, 0.0, -SPAWN_OFFSET_Z)
 	add_child(body)
+	enemy_target = body
 
 
 func _build_hive_visual(parent: StaticBody3D) -> void:

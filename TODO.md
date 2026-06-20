@@ -120,11 +120,11 @@ These existing systems carry forward largely intact:
   - [x] Arena reflects terrain type of the hex (jungle = dense, desert = open, etc.)
   - [x] Enemy carrier / hive placed as objective
   - [x] Your carrier present (defend its reactor)
-- [ ] **Mid-engagement mechanics**
-  - [ ] Deploy reserve mechs from hangar during combat
-  - [ ] When your mech is destroyed → choose another deployed mech to pilot
-  - [ ] Win condition: destroy enemy carrier reactor / hive
-  - [ ] Lose condition: your carrier reactor destroyed
+- [x] **Mid-engagement mechanics**
+  - [x] Deploy reserve mechs from hangar during combat
+  - [x] When your mech is destroyed → choose another deployed mech to pilot
+  - [x] Win condition: destroy enemy carrier reactor / hive
+  - [x] Lose condition: your carrier reactor destroyed
 - [ ] **Engagement resolution**
   - [ ] Return surviving mechs to hangar
   - [ ] Resource cost accounting
