@@ -23,13 +23,13 @@ signal engagement_won()
 signal engagement_lost()
 
 ## A deployed mech was destroyed in combat.
-signal mech_destroyed(mech: CombatTarget, blueprint: MechBlueprint)
+signal mech_destroyed(mech: MechBody, blueprint: MechBlueprint)
 
 ## The player's piloted mech was destroyed and control switched to another.
-signal pilot_switched(new_pilot: CombatTarget, blueprint: MechBlueprint)
+signal pilot_switched(new_pilot: MechBody, blueprint: MechBlueprint)
 
 ## A reserve mech was pulled from the hangar and deployed mid-combat.
-signal reserve_deployed(mech: CombatTarget, blueprint: MechBlueprint)
+signal reserve_deployed(mech: MechBody, blueprint: MechBlueprint)
 
 ## Emitted after victory or defeat resolution with a summary Dictionary.
 signal engagement_resolved(result: Dictionary)
@@ -43,15 +43,6 @@ const DEPLOY_COST_PER_MECH: int = 5
 ## Resource type used for deployment costs.
 const FUEL_RESOURCE: StringName = &"fuel"
 
-## Mech placeholder box size — real models come in Phase 4.
-const MECH_BOX_SIZE := Vector3(1.0, 2.0, 1.0)
-
-## Piloted mech color — green so the player can spot themselves.
-const PILOT_COLOR: Color = Color(0.2, 0.8, 0.3)
-
-## AI-controlled mech color — blue.
-const AI_MECH_COLOR: Color = Color(0.3, 0.5, 0.9)
-
 ## Seconds to wait after victory/defeat before tearing down the arena.
 const END_COMBAT_DELAY: float = 2.0
 
@@ -63,14 +54,14 @@ var _is_engaged: bool = false
 ## The active combat arena.
 var _arena: CombatArena = null
 
-## Deployed mech [CombatTarget]s in the arena (includes the piloted one).
-var _deployed_targets: Array[CombatTarget] = []
+## Deployed [MechBody] entities in the arena (includes the piloted one).
+var _deployed_targets: Array[MechBody] = []
 
 ## Parallel array — blueprint for each deployed target (same indices).
 var _deployed_blueprints: Array[MechBlueprint] = []
 
-## The [CombatTarget] the player is currently piloting.
-var _piloted_mech: CombatTarget = null
+## The [MechBody] the player is currently piloting.
+var _piloted_mech: MechBody = null
 
 ## Blueprint of the currently piloted mech.
 var _piloted_blueprint: MechBlueprint = null
@@ -169,7 +160,7 @@ func begin_engagement(
 	for bp: MechBlueprint in deployed_mechs:
 		var is_pilot: bool = (bp == piloted_mech)
 		var spawn_pos: Vector3 = _next_spawn_point(spawn_points)
-		var target: CombatTarget = _create_mech_target(bp, spawn_pos, is_pilot)
+		var target: MechBody = _create_mech_target(bp, spawn_pos, is_pilot)
 		arena.add_child(target)
 
 		_deployed_targets.append(target)
@@ -235,7 +226,7 @@ func deploy_reserve(hangar_index: int) -> bool:
 	# Spawn into arena.
 	var spawn_points: Array[Vector3] = _arena.get_spawn_points()
 	var spawn_pos: Vector3 = _next_spawn_point(spawn_points)
-	var target: CombatTarget = _create_mech_target(bp, spawn_pos, false)
+	var target: MechBody = _create_mech_target(bp, spawn_pos, false)
 	_arena.add_child(target)
 
 	_deployed_targets.append(target)
@@ -254,8 +245,8 @@ func deploy_reserve(hangar_index: int) -> bool:
 	return true
 
 
-## Return the [CombatTarget] the player is currently piloting, or null.
-func get_piloted_mech() -> CombatTarget:
+## Return the [MechBody] the player is currently piloting, or null.
+func get_piloted_mech() -> MechBody:
 	return _piloted_mech
 
 
@@ -264,10 +255,10 @@ func get_piloted_blueprint() -> MechBlueprint:
 	return _piloted_blueprint
 
 
-## Return all deployed mech targets that are still alive.
-func get_alive_mechs() -> Array[CombatTarget]:
-	var alive: Array[CombatTarget] = []
-	for target: CombatTarget in _deployed_targets:
+## Return all deployed mechs that are still alive.
+func get_alive_mechs() -> Array[MechBody]:
+	var alive: Array[MechBody] = []
+	for target: MechBody in _deployed_targets:
 		if is_instance_valid(target) and not target._dead:
 			alive.append(target)
 	return alive
@@ -280,42 +271,16 @@ func is_engaged() -> bool:
 
 # -- Mech Construction (private) ------------------------------------------
 
-## Build a placeholder [CombatTarget] for a deployed mech.
-##
-## A simple colored box — real mech models arrive in Phase 4.
+## Build a [MechBody] for a deployed mech, configured from the blueprint's
+## chassis stats (speed, reactor heat/integrity).
 func _create_mech_target(
 	bp: MechBlueprint, pos: Vector3, is_pilot: bool,
-) -> CombatTarget:
-	var target := CombatTarget.new()
-	target.name = str(bp.blueprint_name)
-	target.display_name = bp.blueprint_name
-
-	# Reactor stats from chassis.
-	var integ: float = bp.chassis.base_integrity if bp.chassis != null else 100.0
-	var heat_cap: float = bp.chassis.base_max_heat if bp.chassis != null else 100.0
-	target.setup_reactor(integ, heat_cap)
-
-	# Collision.
-	var col := CollisionShape3D.new()
-	var shape := BoxShape3D.new()
-	shape.size = MECH_BOX_SIZE
-	col.shape = shape
-	col.position.y = MECH_BOX_SIZE.y / 2.0
-	target.add_child(col)
-
-	# Visual.
-	var mesh_inst := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = MECH_BOX_SIZE
-	mesh_inst.mesh = box
-	mesh_inst.position.y = MECH_BOX_SIZE.y / 2.0
-	mesh_inst.material_override = _make_mech_material(
-		PILOT_COLOR if is_pilot else AI_MECH_COLOR
-	)
-	target.add_child(mesh_inst)
-
-	target.position = pos
-	return target
+) -> MechBody:
+	var mech := MechBody.new()
+	mech.name = str(bp.blueprint_name)
+	mech.init(bp, is_pilot)
+	mech.position = pos
+	return mech
 
 
 ## Cycle through spawn points, wrapping around if we exhaust them.
@@ -326,14 +291,6 @@ func _next_spawn_point(spawn_points: Array[Vector3]) -> Vector3:
 	var pos: Vector3 = spawn_points[_next_spawn_index % spawn_points.size()]
 	_next_spawn_index += 1
 	return pos
-
-
-## Create a [StandardMaterial3D] with the given color.
-func _make_mech_material(color: Color) -> StandardMaterial3D:
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.7
-	return mat
 
 
 # -- Win / Lose Wiring (private) ------------------------------------------
@@ -368,7 +325,7 @@ func _on_carrier_breached() -> void:
 	_resolve_defeat()
 
 
-func _on_mech_breached(target: CombatTarget) -> void:
+func _on_mech_breached(target: MechBody) -> void:
 	if not _is_engaged:
 		return
 
@@ -393,29 +350,21 @@ func _on_mech_breached(target: CombatTarget) -> void:
 ## Returns [code]true[/code] if a switch occurred, [code]false[/code] if
 ## no mechs remain.
 func _try_switch_pilot() -> bool:
-	var alive: Array[CombatTarget] = get_alive_mechs()
+	var alive: Array[MechBody] = get_alive_mechs()
 	if alive.is_empty():
 		return false
 
 	_piloted_mech = alive[0]
 	_piloted_blueprint = _blueprint_for(_piloted_mech)
 
-	# Repaint the new pilot green so it stands out.
-	_recolor_mech(_piloted_mech, PILOT_COLOR)
+	# Promote the AI mech to player-piloted mode.
+	_piloted_mech.enable_pilot_controls()
 
 	var pilot_name: String = _piloted_blueprint.blueprint_name \
 		if _piloted_blueprint != null else "Unknown"
 	print("[EngagementManager] Pilot switched to: %s" % pilot_name)
 	pilot_switched.emit(_piloted_mech, _piloted_blueprint)
 	return true
-
-
-## Swap the material color on a mech target's [MeshInstance3D] child.
-func _recolor_mech(target: CombatTarget, color: Color) -> void:
-	for child: Node in target.get_children():
-		if child is MeshInstance3D:
-			(child as MeshInstance3D).material_override = _make_mech_material(color)
-			break
 
 
 # -- Resolution (private) -------------------------------------------------
@@ -427,7 +376,7 @@ func _resolve_victory() -> void:
 	var hangar: Hangar = _carrier.get_hangar() if _carrier != null else null
 	var returned: int = 0
 	for i: int in range(_deployed_targets.size()):
-		var target: CombatTarget = _deployed_targets[i]
+		var target: MechBody = _deployed_targets[i]
 		if is_instance_valid(target) and not target._dead:
 			var bp: MechBlueprint = _deployed_blueprints[i]
 			if hangar != null and bp != null:
@@ -502,8 +451,8 @@ func _build_result(victory: bool, mechs_returned: int) -> Dictionary:
 	}
 
 
-## Look up the blueprint for a given [CombatTarget] by parallel-array index.
-func _blueprint_for(target: CombatTarget) -> MechBlueprint:
+## Look up the blueprint for a given [MechBody] by parallel-array index.
+func _blueprint_for(target: MechBody) -> MechBlueprint:
 	var idx: int = _deployed_targets.find(target)
 	if idx >= 0 and idx < _deployed_blueprints.size():
 		return _deployed_blueprints[idx]

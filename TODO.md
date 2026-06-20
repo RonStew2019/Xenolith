@@ -136,10 +136,10 @@ These existing systems carry forward largely intact:
 
 *This is where we cannibalize. Adapt the existing combat for the new chassis/weapon model.*
 
-- [ ] **Chassis system**
-  - [ ] Dogfighter CharacterBody3D (fast, nimble — adapt existing player controller)
-  - [ ] Bomber CharacterBody3D (slow, tanky)
-  - [ ] Chassis determines: speed, max heat, base armor, weapon slots
+- [x] **Chassis system**
+  - [x] Dogfighter CharacterBody3D (fast, nimble — adapt existing player controller)
+  - [x] Bomber CharacterBody3D (slow, tanky)
+  - [x] Chassis determines: speed, max heat, base armor, weapon slots
 - [ ] **Weapon slot system**
   - [ ] Rework Loadout to be slot-based per chassis
   - [ ] L-Hand, R-Hand slots (both chassis)
