@@ -31,6 +31,9 @@ signal pilot_switched(new_pilot: CombatTarget, blueprint: MechBlueprint)
 ## A reserve mech was pulled from the hangar and deployed mid-combat.
 signal reserve_deployed(mech: CombatTarget, blueprint: MechBlueprint)
 
+## Emitted after victory or defeat resolution with a summary Dictionary.
+signal engagement_resolved(result: Dictionary)
+
 # -- Constants -------------------------------------------------------------
 
 ## Fuel cost per reserve mech deployed mid-combat (mirrors
@@ -86,6 +89,21 @@ var _deployment_manager: DeploymentManager = null
 ## Reference to [Carrier] (auto-discovered sibling).
 var _carrier: Carrier = null
 
+## Reference to [ThreatManager] (auto-discovered sibling).
+var _threat_manager: ThreatManager = null
+
+## The [ThreatEntity] this engagement is fighting.
+var _threat: ThreatEntity = null
+
+## Running tally of fuel spent during this engagement.
+var _fuel_spent: int = 0
+
+## Count of mechs lost during this engagement.
+var _mechs_lost: int = 0
+
+## Total mechs deployed (initial + reserves).
+var _total_deployed: int = 0
+
 
 # -- Lifecycle -------------------------------------------------------------
 
@@ -95,6 +113,9 @@ func _ready() -> void:
 			"DeploymentManager"
 		) as DeploymentManager
 		_carrier = get_parent().get_node_or_null("Carrier") as Carrier
+		_threat_manager = get_parent().get_node_or_null(
+			"ThreatManager"
+		) as ThreatManager
 
 	if _deployment_manager == null:
 		push_warning("[EngagementManager] No DeploymentManager sibling — disabled")
@@ -130,6 +151,13 @@ func begin_engagement(
 	_deployed_targets.clear()
 	_deployed_blueprints.clear()
 	_next_spawn_index = 0
+	_total_deployed = deployed_mechs.size()
+	_mechs_lost = 0
+
+	# Pause threat spawning / movement while we're fighting.
+	if _threat_manager != null:
+		_threat_manager.set_process(false)
+		print("[EngagementManager] ThreatManager paused")
 
 	# -- Win / lose wiring -------------------------------------------------
 	_connect_win_condition(arena.get_enemy_target())
@@ -215,6 +243,9 @@ func deploy_reserve(hangar_index: int) -> bool:
 	target.get_reactor().reactor_breached.connect(
 		_on_mech_breached.bind(target)
 	)
+
+	_fuel_spent += DEPLOY_COST_PER_MECH
+	_total_deployed += 1
 
 	print("[EngagementManager] Reserve deployed: %s (cost %d fuel)" % [
 		bp.blueprint_name, DEPLOY_COST_PER_MECH,
@@ -344,6 +375,7 @@ func _on_mech_breached(target: CombatTarget) -> void:
 	var bp: MechBlueprint = _blueprint_for(target)
 	var mech_name: String = bp.blueprint_name if bp != null else "Unknown"
 	print("[EngagementManager] Mech destroyed: %s" % mech_name)
+	_mechs_lost += 1
 	mech_destroyed.emit(target, bp)
 
 	# If it's the piloted mech, try switching to the next alive one.
@@ -402,7 +434,14 @@ func _resolve_victory() -> void:
 				hangar.store_mech(bp)
 				returned += 1
 
+	# Remove the defeated threat from the overworld.
+	if _threat != null and _threat_manager != null:
+		_threat_manager.remove_threat(_threat)
+		print("[EngagementManager] Threat '%s' removed from overworld" % _threat.entity_name)
+
+	var result: Dictionary = _build_result(true, returned)
 	print("[EngagementManager] Victory — %d mech(s) returned to hangar" % returned)
+	engagement_resolved.emit(result)
 	engagement_won.emit()
 
 	# Brief pause so the player can bask in glory.
@@ -414,7 +453,9 @@ func _resolve_defeat() -> void:
 	_is_engaged = false
 
 	# All deployed mechs are lost — nothing goes back to the hangar.
+	var result: Dictionary = _build_result(false, 0)
 	print("[EngagementManager] Defeat — all deployed mechs lost")
+	engagement_resolved.emit(result)
 	engagement_lost.emit()
 
 	# Brief pause so the player can process the L.
@@ -430,6 +471,16 @@ func _cleanup() -> void:
 	_arena = null
 	_next_spawn_index = 0
 
+	# Resume threat spawning / movement now that combat is over.
+	if _threat_manager != null:
+		_threat_manager.set_process(true)
+		print("[EngagementManager] ThreatManager resumed")
+
+	_threat = null
+	_fuel_spent = 0
+	_mechs_lost = 0
+	_total_deployed = 0
+
 	if _deployment_manager != null:
 		_deployment_manager.end_combat()
 
@@ -437,6 +488,19 @@ func _cleanup() -> void:
 
 
 # -- Helpers (private) -----------------------------------------------------
+
+## Build the post-engagement result summary.
+func _build_result(victory: bool, mechs_returned: int) -> Dictionary:
+	return {
+		"victory": victory,
+		"threat_name": _threat.entity_name if _threat != null else &"Unknown",
+		"threat_type": _threat.get_threat_type() if _threat != null else &"",
+		"fuel_spent": _fuel_spent,
+		"mechs_deployed": _total_deployed,
+		"mechs_lost": _mechs_lost,
+		"mechs_survived": mechs_returned,
+	}
+
 
 ## Look up the blueprint for a given [CombatTarget] by parallel-array index.
 func _blueprint_for(target: CombatTarget) -> MechBlueprint:
@@ -449,13 +513,15 @@ func _blueprint_for(target: CombatTarget) -> MechBlueprint:
 # -- DeploymentManager Signal Handlers -------------------------------------
 
 func _on_deployment_launched(
-	_threat: ThreatEntity,
+	threat: ThreatEntity,
 	deployed_mechs: Array[MechBlueprint],
 	piloted_mech: MechBlueprint,
 ) -> void:
 	# Stash until combat_started fires with the arena reference.
 	_pending_deployed = deployed_mechs.duplicate()
 	_pending_piloted = piloted_mech
+	_threat = threat
+	_fuel_spent = deployed_mechs.size() * DEPLOY_COST_PER_MECH
 	print("[EngagementManager] Received deployment — %d mechs, pilot: %s" % [
 		deployed_mechs.size(),
 		piloted_mech.blueprint_name if piloted_mech != null else "none",

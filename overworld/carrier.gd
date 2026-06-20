@@ -303,6 +303,8 @@ func has_power_for(module: CarrierModule) -> bool:
 # -- Input -----------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not visible:
+		return
 	if not event is InputEventMouseButton:
 		return
 	var mb := event as InputEventMouseButton

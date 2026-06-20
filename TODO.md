@@ -125,10 +125,10 @@ These existing systems carry forward largely intact:
   - [x] When your mech is destroyed → choose another deployed mech to pilot
   - [x] Win condition: destroy enemy carrier reactor / hive
   - [x] Lose condition: your carrier reactor destroyed
-- [ ] **Engagement resolution**
-  - [ ] Return surviving mechs to hangar
-  - [ ] Resource cost accounting
-  - [ ] Return to overworld
+- [x] **Engagement resolution**
+  - [x] Return surviving mechs to hangar
+  - [x] Resource cost accounting
+  - [x] Return to overworld
 
 ---
 
