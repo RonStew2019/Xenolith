@@ -38,6 +38,8 @@ func _ready() -> void:
 ## e.g. [code]{"ability_1": "1"}[/code].
 func bind(loadout: Loadout, key_labels: Dictionary) -> void:
 	for ability in loadout.get_abilities():
+		if ability.input_action == "":
+			continue  # Passive weapons have no key binding.
 		var key_text: String = key_labels.get(ability.input_action, "?")
 		_add_slot(ability, key_text)
 

@@ -45,6 +45,22 @@ var _camera_pivot: Node3D
 ## HUD canvas layer (only when piloted).
 var _hud_layer: CanvasLayer
 
+## Slot → input-action mapping per chassis type.
+## Hand slots are passive (on_equip only), so intentionally omitted.
+const DOGFIGHTER_SLOT_INPUTS: Dictionary = {
+	&"l_shoulder": "ability_1",
+	&"r_shoulder": "ability_2",
+}
+const BOMBER_SLOT_INPUTS: Dictionary = {
+	&"artillery": "ability_1",
+}
+
+## Maps keycodes to loadout action strings for ability dispatch.
+var _ability_keys: Dictionary = {
+	KEY_1: "ability_1",
+	KEY_2: "ability_2",
+}
+
 
 # -- Initialisation --------------------------------------------------------
 
@@ -67,6 +83,7 @@ func _ready() -> void:
 	super._ready()          # CharacterBase: model, anim tree, reactor glow
 	_create_collision_shape()
 	_setup_reactor()
+	_setup_loadout()
 	if is_pilot:
 		_setup_pilot_controls()
 
@@ -87,6 +104,34 @@ func _setup_reactor() -> void:
 	add_child(_reactor)
 	_reactor.reactor_breached.connect(die)
 	_bind_reactor_glow(_reactor)
+
+
+func _setup_loadout() -> void:
+	if blueprint == null or blueprint.chassis == null:
+		return
+	var slot_input_map: Dictionary = _get_slot_input_map()
+	_loadout = Loadout.create_from_blueprint(blueprint, slot_input_map)
+	_loadout.equip_all(self)
+
+
+func _get_slot_input_map() -> Dictionary:
+	if blueprint == null or blueprint.chassis == null:
+		return {}
+	match blueprint.chassis.chassis_name:
+		&"Dogfighter":
+			return DOGFIGHTER_SLOT_INPUTS.duplicate()
+		&"Bomber":
+			return BOMBER_SLOT_INPUTS.duplicate()
+		_:
+			return {}
+
+
+func _build_key_labels() -> Dictionary:
+	var labels := {}
+	for keycode: int in _ability_keys:
+		var action: String = _ability_keys[keycode]
+		labels[action] = action.replace("ability_", "")
+	return labels
 
 
 # -- Pilot Controls --------------------------------------------------------
@@ -120,6 +165,13 @@ func _setup_pilot_controls() -> void:
 	hud.name = "ReactorHUD"
 	_hud_layer.add_child(hud)
 	hud.bind_reactor(_reactor)
+
+	# AbilityBar for active (keyed) weapon slots.
+	if _loadout:
+		var ability_bar := AbilityBar.new()
+		ability_bar.name = "AbilityBar"
+		ability_bar.bind(_loadout, _build_key_labels())
+		_hud_layer.add_child(ability_bar)
 
 
 ## Tear down camera and HUD.  Safe to call when not piloted (no-ops).
@@ -257,6 +309,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 			return
+
+	# Ability key dispatch — press → activate, release → deactivate.
+	if event is InputEventKey and event.keycode in _ability_keys:
+		var action: String = _ability_keys[event.keycode]
+		if event.pressed:
+			_activate_ability(action)
+		else:
+			_deactivate_ability(action)
 
 	# Punch input — LMB = left hook, RMB = right cross.
 	if _anim_tree:

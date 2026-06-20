@@ -37,19 +37,19 @@ static func bomber_chassis() -> MechChassis:
 
 # -- Blueprint Factories ---------------------------------------------------
 
-## A bare-bones dogfighter — empty weapon slots, cheapest possible mech.
+## A bare-bones dogfighter — punch amplifiers on both hands.
 static func basic_dogfighter_blueprint() -> MechBlueprint:
 	var bp := MechBlueprint.new()
 	bp.blueprint_name = &"Basic Dogfighter"
 	bp.chassis = dogfighter_chassis()
-	bp.weapon_assignments = {}
+	bp.weapon_assignments = {&"l_hand": &"punch_amplifier", &"r_hand": &"punch_amplifier"}
 	return bp
 
 
-## A bare-bones bomber — empty weapon slots.
+## A bare-bones bomber — punch amplifiers on both hands.
 static func basic_bomber_blueprint() -> MechBlueprint:
 	var bp := MechBlueprint.new()
 	bp.blueprint_name = &"Basic Bomber"
 	bp.chassis = bomber_chassis()
-	bp.weapon_assignments = {}
+	bp.weapon_assignments = {&"l_hand": &"punch_amplifier", &"r_hand": &"punch_amplifier"}
 	return bp
