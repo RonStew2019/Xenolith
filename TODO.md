@@ -106,11 +106,11 @@ These existing systems carry forward largely intact:
 
 *Bridge between strategic layer and combat. The "scramble your jets" moment.*
 
-- [ ] **Threat system**
-  - [ ] Threat detection (something enters your hex or adjacent hexes)
-  - [ ] Threat types: fauna (early game), enemy carriers (mid/late)
-  - [ ] Enemy carrier AI — stronger = slower, weaker = faster (guerilla incentive)
-  - [ ] Fauna hive/nest as destroyable objective
+- [x] **Threat system**
+  - [x] Threat detection (something enters your hex or adjacent hexes)
+  - [x] Threat types: fauna (early game), enemy carriers (mid/late)
+  - [x] Enemy carrier AI — stronger = slower, weaker = faster (guerilla incentive)
+  - [x] Fauna hive/nest as destroyable objective
 - [ ] **Deployment flow**
   - [ ] Engagement trigger → deployment screen
   - [ ] Choose which mechs from hangar to deploy (costs resources)

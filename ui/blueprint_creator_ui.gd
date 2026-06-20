@@ -436,7 +436,7 @@ func _refresh_queue_progress() -> void:
 		var entry: Dictionary = queue[i]
 		var row: Dictionary = _queue_rows[i]
 		row.bar.value = entry.progress
-		var pct := (entry.progress / maxf(row.build_time, 0.001)) * 100.0
+		var pct: float = (entry.progress / maxf(row.build_time, 0.001)) * 100.0
 		row.progress_label.text = "%d%%" % int(pct)
 
 
