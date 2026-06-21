@@ -88,7 +88,7 @@ func duplicate_loadout() -> Loadout:
 	var copy := Loadout.new()
 	var ability_map: Dictionary = {}  # old → new, for slot reassignment
 	for ability in _abilities:
-		var dup := ability.duplicate_ability()
+		var dup: Ability = ability.duplicate_ability()
 		copy.add_ability(dup)
 		ability_map[ability] = dup
 	for slot_name: StringName in _slots:
