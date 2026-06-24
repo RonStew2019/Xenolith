@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://overworld/hex_grid.gd" id="1"]
 [ext_resource type="Script" path="res://overworld/carrier.gd" id="2"]
@@ -8,6 +8,8 @@
 [ext_resource type="Script" path="res://overworld/deployment_manager.gd" id="6"]
 [ext_resource type="Script" path="res://ui/deployment_ui.gd" id="7"]
 [ext_resource type="Script" path="res://combat/engagement_manager.gd" id="8"]
+[ext_resource type="Script" path="res://ui/overworld_hud.gd" id="9"]
+[ext_resource type="Script" path="res://ui/threat_indicator_manager.gd" id="10"]
 
 [node name="HexOverworld" type="Node3D"]
 
@@ -30,6 +32,12 @@ shadow_enabled = true
 
 [node name="ThreatManager" type="Node" parent="."]
 script = ExtResource("5")
+
+[node name="ThreatIndicatorManager" type="Node3D" parent="."]
+script = ExtResource("10")
+
+[node name="OverworldHUD" type="CanvasLayer" parent="."]
+script = ExtResource("9")
 
 [node name="CarrierCustomizationUI" type="CanvasLayer" parent="."]
 script = ExtResource("4")

@@ -173,9 +173,9 @@ These existing systems carry forward largely intact:
 *Strategic + combat UI.*
 
 - [ ] **Overworld UI**
-  - [ ] Hex grid info panel (terrain type, resources, threats)
-  - [ ] Carrier status panel (nodes, resources, hangar count)
-  - [ ] Threat indicators on map
+  - [x] Hex grid info panel (terrain type, resources, threats)
+  - [x] Carrier status panel (nodes, resources, hangar count)
+  - [x] Threat indicators on map
 - [ ] **Deployment UI**
   - [ ] Mech selection screen (from hangar)
   - [ ] Pilot selection
