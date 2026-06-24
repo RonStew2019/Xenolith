@@ -11,6 +11,19 @@ class_name WeaponRegistry
 ##   2. Add a match branch in [method create_weapon].
 
 
+## Return every registered weapon ID.
+static func get_all_weapon_ids() -> Array[StringName]:
+	return [
+		&"punch_amplifier",
+		&"thermal_fist",
+		&"heat_cannon",
+		&"blaster",
+		&"scatter_blaster",
+		&"mortar",
+		&"artillery_mortar",
+	]
+
+
 ## Create a fresh [Ability] for the given weapon ID.
 ##
 ## [param weapon_id] — registered weapon identifier.[br]

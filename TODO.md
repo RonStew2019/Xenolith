@@ -188,10 +188,10 @@ These existing systems carry forward largely intact:
   - [x] "Switch mech" prompt on destruction
   - [x] Reserve deployment button mid-combat
   - [x] Enemy carrier health/reactor status
-- [ ] **Fabrication UI**
-  - [ ] Blueprint designer (chassis + weapons)
-  - [ ] Build queue display
-  - [ ] Hangar browser
+- [x] **Fabrication UI**
+  - [x] Blueprint designer (chassis + weapons)
+  - [x] Build queue display
+  - [x] Hangar browser
 
 ---
 

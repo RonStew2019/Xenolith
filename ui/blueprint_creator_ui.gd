@@ -62,6 +62,9 @@ var _slots_container: VBoxContainer
 var _queue_container: VBoxContainer
 var _resource_label: Label
 
+# Weapon slot selections: slot_name (StringName) -> weapon_id (StringName)
+var _weapon_selections: Dictionary = {}
+
 # Track queue entries for _process updates
 var _queue_rows: Array[Dictionary] = []  # {panel, bar, progress_label, fill_style}
 
@@ -251,11 +254,14 @@ func _update_stats_display(chassis: MechChassis) -> void:
 func _update_slots_display(chassis: MechChassis) -> void:
 	for child in _slots_container.get_children():
 		child.queue_free()
+	_weapon_selections.clear()
 
 	if chassis.weapon_slots.is_empty():
 		var lbl := _make_label("No weapon slots.", DIM_COLOR, FONT_SMALL)
 		_slots_container.add_child(lbl)
 		return
+
+	var weapon_ids := WeaponRegistry.get_all_weapon_ids()
 
 	for slot_name: StringName in chassis.weapon_slots:
 		var row := HBoxContainer.new()
@@ -265,11 +271,37 @@ func _update_slots_display(chassis: MechChassis) -> void:
 		slot_lbl.custom_minimum_size.x = 120.0
 		row.add_child(slot_lbl)
 
-		var weapon_lbl := _make_label("(empty)", DIM_COLOR, FONT_SMALL)
-		weapon_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(weapon_lbl)
+		var opt := OptionButton.new()
+		opt.custom_minimum_size = Vector2(180, 30)
+		opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		opt.focus_mode = Control.FOCUS_NONE
+		opt.add_theme_font_size_override("font_size", FONT_NORMAL)
+		opt.add_theme_color_override("font_color", LABEL_COLOR)
+		opt.add_theme_color_override("font_hover_color", Color.WHITE)
+		var opt_style := StyleBoxFlat.new()
+		opt_style.bg_color = BTN_BG
+		_apply_corner_radius(opt_style, CORNER_RADIUS)
+		_apply_border(opt_style, 1, BTN_BORDER)
+		_apply_btn_margins(opt_style)
+		opt.add_theme_stylebox_override("normal", opt_style)
+
+		# First item is "(none)"
+		opt.add_item("(none)")
+		for wid: StringName in weapon_ids:
+			opt.add_item(String(wid).to_pascal_case())
+		opt.selected = 0
+
+		opt.item_selected.connect(_on_weapon_slot_changed.bind(slot_name, weapon_ids))
+		row.add_child(opt)
 
 		_slots_container.add_child(row)
+
+
+func _on_weapon_slot_changed(index: int, slot_name: StringName, weapon_ids: Array[StringName]) -> void:
+	if index == 0:
+		_weapon_selections.erase(slot_name)
+	else:
+		_weapon_selections[slot_name] = weapon_ids[index - 1]
 
 
 func _update_cost_display(chassis: MechChassis) -> void:
@@ -336,7 +368,7 @@ func _on_queue_pressed() -> void:
 		name_text = String(_selected_chassis.chassis_name)
 	bp.blueprint_name = StringName(name_text)
 	bp.chassis = _selected_chassis
-	bp.weapon_assignments = {}
+	bp.weapon_assignments = _weapon_selections.duplicate()
 
 	if _build_queue.queue_build(bp):
 		_name_edit.text = ""
