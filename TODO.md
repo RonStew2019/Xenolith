@@ -172,22 +172,22 @@ These existing systems carry forward largely intact:
 
 *Strategic + combat UI.*
 
-- [ ] **Overworld UI**
+- [x] **Overworld UI**
   - [x] Hex grid info panel (terrain type, resources, threats)
   - [x] Carrier status panel (nodes, resources, hangar count)
   - [x] Threat indicators on map
-- [ ] **Deployment UI**
-  - [ ] Mech selection screen (from hangar)
-  - [ ] Pilot selection
-  - [ ] Resource cost display
-  - [ ] "Launch" button
-- [ ] **Combat HUD** (adapt existing)
-  - [ ] ReactorHUD — stays, per-mech heat display
-  - [ ] AbilityBar — adapt for weapon slots
-  - [ ] FloatingNumber — stays
-  - [ ] "Switch mech" prompt on destruction
-  - [ ] Reserve deployment button mid-combat
-  - [ ] Enemy carrier health/reactor status
+- [x] **Deployment UI**
+  - [x] Mech selection screen (from hangar)
+  - [x] Pilot selection
+  - [x] Resource cost display
+  - [x] "Launch" button
+- [x] **Combat HUD** (adapt existing)
+  - [x] ReactorHUD — stays, per-mech heat display
+  - [x] AbilityBar — adapt for weapon slots
+  - [x] FloatingNumber — stays
+  - [x] "Switch mech" prompt on destruction
+  - [x] Reserve deployment button mid-combat
+  - [x] Enemy carrier health/reactor status
 - [ ] **Fabrication UI**
   - [ ] Blueprint designer (chassis + weapons)
   - [ ] Build queue display

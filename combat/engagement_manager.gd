@@ -101,6 +101,9 @@ var _fauna_mobs: Array = []
 ## Count of fauna kills during this engagement.
 var _fauna_kills: int = 0
 
+## The in-combat HUD overlay (created on engagement start, freed on cleanup).
+var _combat_hud: CombatHUD = null
+
 
 # -- Lifecycle -------------------------------------------------------------
 
@@ -204,6 +207,14 @@ func begin_engagement(
 	var threat_type: StringName = _threat.get_threat_type() if _threat != null else &""
 	if threat_type == &"fauna_hive":
 		_spawn_fauna(arena)
+
+	# -- Combat HUD --------------------------------------------------------
+	if _combat_hud != null:
+		_combat_hud.queue_free()
+	_combat_hud = CombatHUD.new()
+	_combat_hud.name = "CombatHUD"
+	add_child(_combat_hud)
+	_combat_hud.setup(self, arena, _carrier)
 
 	print("[EngagementManager] Engagement started — %d mechs vs %s" % [
 		_deployed_targets.size(),
@@ -484,6 +495,10 @@ func _resolve_defeat() -> void:
 
 
 func _cleanup() -> void:
+	if _combat_hud != null:
+		_combat_hud.queue_free()
+		_combat_hud = null
+
 	_deployed_targets.clear()
 	_deployed_blueprints.clear()
 	_fauna_mobs.clear()
