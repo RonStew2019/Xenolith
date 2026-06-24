@@ -22,6 +22,9 @@ signal threat_removed(threat: ThreatEntity)
 ## A threat occupies the SAME hex as the carrier — direct confrontation.
 signal engagement_triggered(threat: ThreatEntity)
 
+## Emitted after each threat turn is processed.
+signal turn_processed(turn_number: int)
+
 # -- Configuration ---------------------------------------------------------
 
 ## Seconds between threat turns.
@@ -34,10 +37,30 @@ var max_threats: int = 6
 var spawn_interval_turns: int = 5
 
 ## Number of initial fauna hives placed in [method _ready].
-const INITIAL_HIVE_COUNT: int = 3
+## Configurable by [ProgressionManager] before the first frame.
+var initial_hive_count: int = 3
 
-## Turns before enemy carriers start spawning (give player breathing room).
-const ENEMY_CARRIER_START_TURN: int = 10
+## Probability (0.0–1.0) of spawning an enemy carrier vs a fauna hive.
+## Controlled by [ProgressionManager] based on current phase.
+var enemy_carrier_chance: float = 0.0
+
+## Minimum enemy carrier strength when spawning.
+var carrier_strength_min: float = 1.0
+
+## Maximum enemy carrier strength when spawning.
+var carrier_strength_max: float = 10.0
+
+## Minimum fauna [member FaunaHive.threat_level] when spawning.
+var fauna_threat_level_min: float = 1.0
+
+## Maximum fauna [member FaunaHive.threat_level] when spawning.
+var fauna_threat_level_max: float = 2.5
+
+## Minimum fauna [member FaunaHive.swarm_strength] when spawning.
+var fauna_swarm_strength_min: float = 1.0
+
+## Maximum fauna [member FaunaHive.swarm_strength] when spawning.
+var fauna_swarm_strength_max: float = 1.5
 
 ## Default detection range (same hex + adjacent = 1).
 const DETECTION_RANGE: int = 1
@@ -111,6 +134,7 @@ func _process_turn() -> void:
 		_spawn_random_threat()
 
 	print("[ThreatManager] Turn %d — %d active threats" % [_turns_elapsed, _threats.size()])
+	turn_processed.emit(_turns_elapsed)
 
 
 # -- Detection -------------------------------------------------------------
@@ -160,7 +184,7 @@ func _on_carrier_moved(_from_hex: Vector2i, _to_hex: Vector2i) -> void:
 ## non-carrier hexes.
 func _spawn_initial_hives() -> void:
 	var interior: Array[Vector2i] = _get_interior_hexes()
-	for i: int in range(INITIAL_HIVE_COUNT):
+	for i: int in range(initial_hive_count):
 		var hex: Vector2i = _get_random_empty_hex(interior)
 		if hex == Vector2i(-999, -999):
 			break  # No more valid hexes.
@@ -171,8 +195,8 @@ func _spawn_initial_hives() -> void:
 func spawn_fauna_hive(q: int, r: int) -> FaunaHive:
 	var hive := FaunaHive.new()
 	hive.entity_name = &"Fauna Hive"
-	hive.threat_level = 1.0 + randf() * 1.5
-	hive.swarm_strength = 1.0 + randf() * 0.5
+	hive.threat_level = randf_range(fauna_threat_level_min, fauna_threat_level_max)
+	hive.swarm_strength = randf_range(fauna_swarm_strength_min, fauna_swarm_strength_max)
 	hive.name = "FaunaHive_%d_%d" % [q, r]
 
 	get_parent().add_child(hive)
@@ -212,13 +236,10 @@ func _spawn_random_threat() -> void:
 		print("[ThreatManager] No empty edge hexes for spawning")
 		return
 
-	if _turns_elapsed >= ENEMY_CARRIER_START_TURN and randf() > 0.4:
-		# Mid/late game — spawn enemy carrier with escalating strength.
-		var strength_val: float = 1.0 + (float(_turns_elapsed) / 20.0) * 4.0
-		strength_val = clampf(strength_val, 1.0, 10.0)
+	if randf() < enemy_carrier_chance:
+		var strength_val: float = randf_range(carrier_strength_min, carrier_strength_max)
 		spawn_enemy_carrier(hex.x, hex.y, strength_val)
 	else:
-		# Early game — more fauna.
 		spawn_fauna_hive(hex.x, hex.y)
 
 
@@ -230,6 +251,11 @@ func remove_threat(threat: ThreatEntity) -> void:
 	threat_removed.emit(threat)
 	threat.remove_from_grid()
 	print("[ThreatManager] Removed %s — %d threats remain" % [threat.entity_name, _threats.size()])
+
+
+## Return the number of turns elapsed since the manager started.
+func get_turns_elapsed() -> int:
+	return _turns_elapsed
 
 
 ## Return a copy of the active threats array.

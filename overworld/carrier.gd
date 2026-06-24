@@ -386,10 +386,18 @@ func _stop_harvesting() -> void:
 # -- Child Node Setup (private) --------------------------------------------
 
 ## Create and attach the carrier's [Inventory] child node.
+##
+## Seeds the inventory with enough resources for one dogfighter build
+## (30 metal + 10 crystal) plus a first deployment (5 fuel), with some
+## slack so the player isn't immediately stranded.
 func _setup_inventory() -> void:
 	_inventory = Inventory.new()
 	_inventory.name = "Inventory"
 	add_child(_inventory)
+	# Starting resources — enough for one dogfighter + first deployment.
+	_inventory.add_resource(&"metal", 50)
+	_inventory.add_resource(&"crystal", 20)
+	_inventory.add_resource(&"fuel", 20)
 
 
 ## Create and attach the carrier's [Hangar] child node.

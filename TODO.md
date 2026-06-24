@@ -199,10 +199,10 @@ These existing systems carry forward largely intact:
 
 *The stuff that makes it a game.*
 
-- [ ] **Progression curve**
-  - [ ] Early game: fauna threats, scavenge resources, build first mechs
-  - [ ] Mid game: encounter weak enemy carriers, expand carrier
-  - [ ] Late game: strong enemy carriers, fully kitted hangar
+- [x] **Progression curve**
+  - [x] Early game: fauna threats, scavenge resources, build first mechs
+  - [x] Mid game: encounter weak enemy carriers, expand carrier
+  - [x] Late game: strong enemy carriers, fully kitted hangar
 - [ ] **Economy balancing**
   - [ ] Resource costs for mech deployment (incentivize minimum force)
   - [ ] Build costs for mechs and carrier nodes
