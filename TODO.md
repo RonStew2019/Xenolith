@@ -151,7 +151,7 @@ These existing systems carry forward largely intact:
   - [x] Short-range weapons (dogfighter bread & butter) — adapt melee/punch system
   - [x] Long-range weapons (bomber focus) — adapt projectile system
   - [x] Artillery weapon (bomber exclusive) — high damage, slow, AoE?
-  - [ ] Special status effect weapons can come later (not primary concern)
+  - [x] Special status effect weapons can come later (not primary concern)
 - [x] **Procedural mech models**
   - [x] Extend `generate_character.py` for dogfighter silhouette
   - [x] Extend for bomber silhouette (bulkier, artillery mount)
@@ -211,9 +211,9 @@ These existing systems carry forward largely intact:
   - [ ] Weak/fast scout carriers
   - [ ] Strong/slow fortress carriers
   - [ ] Carrier loadout variety (different defense nodes, mech complements)
-- [ ] **Special status effects (stretch)**
-  - [ ] Beyond pure heat — once the core loop is solid
-  - [ ] Poison, freeze, EMP, etc. as rare weapon mods
+- [x] **Special status effects (stretch)**
+  - [x] Beyond pure heat — once the core loop is solid
+  - [x] Poison, freeze, EMP, etc. as rare weapon mods
 
 ---
 

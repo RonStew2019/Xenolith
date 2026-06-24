@@ -21,6 +21,9 @@ static func get_all_weapon_ids() -> Array[StringName]:
 		&"scatter_blaster",
 		&"mortar",
 		&"artillery_mortar",
+		&"venom_fist",
+		&"cryo_cannon",
+		&"emp_mortar",
 	]
 
 
@@ -46,6 +49,12 @@ static func create_weapon(weapon_id: StringName, _slot_name: StringName) -> Abil
 			return MortarAbility.new()
 		&"artillery_mortar":
 			return ArtilleryMortarAbility.new()
+		&"venom_fist":
+			return VenomFistAbility.new()
+		&"cryo_cannon":
+			return CryoCannonAbility.new()
+		&"emp_mortar":
+			return EMPMortarAbility.new()
 		_:
 			push_warning("WeaponRegistry: unknown weapon_id '%s'" % weapon_id)
 			return null
