@@ -18,6 +18,7 @@ static func dogfighter_chassis() -> MechChassis:
 	c.base_max_heat = 80.0
 	c.base_integrity = 80.0
 	c.resource_costs = {&"metal": 30, &"crystal": 10}
+	c.deploy_fuel_cost = EconomyConfig.DOGFIGHTER_DEPLOY_FUEL
 	c.build_time = 15.0
 	return c
 
@@ -32,6 +33,7 @@ static func bomber_chassis() -> MechChassis:
 	c.base_max_heat = 120.0
 	c.base_integrity = 150.0
 	c.resource_costs = {&"metal": 60, &"crystal": 30}
+	c.deploy_fuel_cost = EconomyConfig.BOMBER_DEPLOY_FUEL
 	c.build_time = 30.0
 	return c
 

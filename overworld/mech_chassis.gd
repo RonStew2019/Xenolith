@@ -35,5 +35,8 @@ class_name MechChassis
 ## e.g. {&"metal": 50, &"crystal": 20}
 @export var resource_costs: Dictionary = {}
 
+## Fuel cost to deploy this mech into combat.
+@export var deploy_fuel_cost: int = 5
+
 ## Base seconds to build (before fabricator speed multiplier).
 @export var build_time: float = 20.0

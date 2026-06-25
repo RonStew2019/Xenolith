@@ -49,6 +49,9 @@ signal module_uninstalled(module: CarrierModule, slot_index: int)
 ## Maximum number of module slots on the carrier.
 @export var max_slots: int = 6
 
+## Phase-based harvest rate multiplier applied on top of module bonuses.
+var harvest_rate_multiplier: float = 1.0
+
 # -- State -----------------------------------------------------------------
 
 ## Current axial position on the hex grid.
@@ -114,7 +117,7 @@ func _process(delta: float) -> void:
 		return
 
 	# Drain from hex, accumulate float, deposit whole units.
-	var drain: float = minf(harvest_rate * delta, _harvest_cell.resource_amount)
+	var drain: float = minf(harvest_rate * harvest_rate_multiplier * delta, _harvest_cell.resource_amount)
 	_harvest_cell.resource_amount -= drain
 	_harvest_accumulator += drain
 	harvest_tick.emit(_harvest_cell.resource_type, drain)
@@ -222,6 +225,18 @@ func install_module(module: CarrierModule) -> bool:
 		print("[Carrier] Cannot install %s — insufficient power (need %d, available %d)" \
 			% [module.module_name, module.power_cost, get_available_power()])
 		return false
+	# Check resource costs (empty dict = free, e.g. default starting modules).
+	if not module.resource_costs.is_empty() and _inventory != null:
+		for res_type: StringName in module.resource_costs:
+			var needed: int = module.resource_costs[res_type]
+			if not _inventory.has_enough(res_type, needed):
+				print("[Carrier] Cannot install %s — not enough %s (need %d, have %d)" \
+					% [module.module_name, res_type, needed, _inventory.get_amount(res_type)])
+				return false
+		# Deduct resources.
+		for res_type: StringName in module.resource_costs:
+			_inventory.remove_resource(res_type, module.resource_costs[res_type])
+		print("[Carrier] Spent resources for %s" % module.module_name)
 
 	_modules.append(module)
 	var slot_index: int = _modules.size() - 1

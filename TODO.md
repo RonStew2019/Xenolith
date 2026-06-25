@@ -203,10 +203,10 @@ These existing systems carry forward largely intact:
   - [x] Early game: fauna threats, scavenge resources, build first mechs
   - [x] Mid game: encounter weak enemy carriers, expand carrier
   - [x] Late game: strong enemy carriers, fully kitted hangar
-- [ ] **Economy balancing**
-  - [ ] Resource costs for mech deployment (incentivize minimum force)
-  - [ ] Build costs for mechs and carrier nodes
-  - [ ] Harvest rates vs. consumption rates
+- [x] **Economy balancing**
+  - [x] Resource costs for mech deployment (incentivize minimum force)
+  - [x] Build costs for mechs and carrier nodes
+  - [x] Harvest rates vs. consumption rates
 - [ ] **Enemy carrier variety**
   - [ ] Weak/fast scout carriers
   - [ ] Strong/slow fortress carriers

@@ -20,6 +20,11 @@ class_name CarrierModule
 ## How much reactor power this module consumes when installed.
 @export var power_cost: int = 1
 
+## Resource costs to build/install this module.
+## Keys are resource type StringNames, values are integer amounts.
+## e.g. {&"metal": 40, &"crystal": 20}
+@export var resource_costs: Dictionary = {}
+
 # -- Virtual Methods -------------------------------------------------------
 
 ## Called when the module is installed into a carrier slot.

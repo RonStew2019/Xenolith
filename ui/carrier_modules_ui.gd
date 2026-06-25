@@ -229,27 +229,32 @@ func _build_install_buttons() -> void:
 	for child in _install_container.get_children():
 		child.queue_free()
 
-	# Each installable module type with default stats
+	# Each installable module type with default stats + cost from EconomyConfig
 	var templates: Array[Dictionary] = [
 		{
-			"label": "Reactor  (+5 , cost 0)",
+			"label": "Reactor  (+5 )  —  %s" % _format_cost(EconomyConfig.reactor_module_cost()),
 			"factory": _make_reactor,
+			"costs": EconomyConfig.reactor_module_cost(),
 		},
 		{
-			"label": "Fabricator  (1.0x speed, cost 1 )",
+			"label": "Fabricator  (1.0x speed)  —  %s" % _format_cost(EconomyConfig.fabricator_module_cost()),
 			"factory": _make_fabricator,
+			"costs": EconomyConfig.fabricator_module_cost(),
 		},
 		{
-			"label": "Hangar  (4 slots, cost 1 )",
+			"label": "Hangar  (4 slots)  —  %s" % _format_cost(EconomyConfig.hangar_module_cost()),
 			"factory": _make_hangar_module,
+			"costs": EconomyConfig.hangar_module_cost(),
 		},
 		{
-			"label": "Harvester  (+5.0/s, cost 1 )",
+			"label": "Harvester  (+5.0/s)  —  %s" % _format_cost(EconomyConfig.harvester_module_cost()),
 			"factory": _make_harvester,
+			"costs": EconomyConfig.harvester_module_cost(),
 		},
 		{
-			"label": "Defense  (+10.0, cost 1 )",
+			"label": "Defense  (+10.0)  —  %s" % _format_cost(EconomyConfig.defense_module_cost()),
 			"factory": _make_defense,
+			"costs": EconomyConfig.defense_module_cost(),
 		},
 	]
 
@@ -263,9 +268,29 @@ func _update_install_button_states() -> void:
 	if not _carrier:
 		return
 	var slots_full: bool = _carrier.get_module_count() >= _carrier.max_slots
+	var inventory: Inventory = _carrier.get_inventory()
+
+	# Cost lookup per button label prefix — mirrors the template order.
+	var cost_map: Array[Dictionary] = [
+		EconomyConfig.reactor_module_cost(),
+		EconomyConfig.fabricator_module_cost(),
+		EconomyConfig.hangar_module_cost(),
+		EconomyConfig.harvester_module_cost(),
+		EconomyConfig.defense_module_cost(),
+	]
+
+	var btn_index: int = 0
 	for child in _install_container.get_children():
 		if child is Button:
-			child.disabled = slots_full
+			var cannot_afford: bool = false
+			if btn_index < cost_map.size() and inventory != null:
+				var costs: Dictionary = cost_map[btn_index]
+				for res_type: StringName in costs:
+					if not inventory.has_enough(res_type, costs[res_type]):
+						cannot_afford = true
+						break
+			child.disabled = slots_full or cannot_afford
+			btn_index += 1
 
 
 # ── Module Factories (for install buttons) ───────────────────────────────
@@ -275,6 +300,7 @@ func _make_reactor() -> CarrierModule:
 	m.module_name = &"Reactor"
 	m.description = "Additional power reactor."
 	m.power_output = 5
+	m.resource_costs = EconomyConfig.reactor_module_cost()
 	return m
 
 func _make_fabricator() -> CarrierModule:
@@ -282,6 +308,7 @@ func _make_fabricator() -> CarrierModule:
 	m.module_name = &"Fabricator"
 	m.description = "Mech fabrication bay."
 	m.build_speed = 1.0
+	m.resource_costs = EconomyConfig.fabricator_module_cost()
 	return m
 
 func _make_hangar_module() -> CarrierModule:
@@ -289,6 +316,7 @@ func _make_hangar_module() -> CarrierModule:
 	m.module_name = &"Hangar Bay"
 	m.description = "Mech storage bay."
 	m.mech_capacity = 4
+	m.resource_costs = EconomyConfig.hangar_module_cost()
 	return m
 
 func _make_harvester() -> CarrierModule:
@@ -296,6 +324,7 @@ func _make_harvester() -> CarrierModule:
 	m.module_name = &"Harvester"
 	m.description = "Resource harvesting equipment."
 	m.harvest_rate_bonus = 5.0
+	m.resource_costs = EconomyConfig.harvester_module_cost()
 	return m
 
 func _make_defense() -> CarrierModule:
@@ -303,6 +332,7 @@ func _make_defense() -> CarrierModule:
 	m.module_name = &"Defense Grid"
 	m.description = "Passive defense system."
 	m.defense_strength = 10.0
+	m.resource_costs = EconomyConfig.defense_module_cost()
 	return m
 
 # ── Signal Handlers ──────────────────────────────────────────────────────
@@ -328,6 +358,7 @@ func _on_install_pressed(factory: Callable) -> void:
 	if not _carrier.has_power_for(module) and not (module is ReactorModule):
 		print("[CarrierModulesUI] Not enough power for %s" % module.module_name)
 		return
+	# Carrier.install_module() handles resource cost validation & deduction.
 	_carrier.install_module(module)
 
 # ── Refresh ──────────────────────────────────────────────────────────────
@@ -458,6 +489,17 @@ static func _apply_btn_margins(style: StyleBoxFlat) -> void:
 	style.content_margin_right = 10.0
 	style.content_margin_top = 4.0
 	style.content_margin_bottom = 4.0
+
+
+## Format a resource cost dictionary as a human-readable string.
+## e.g. {&"metal": 40, &"crystal": 20} → "40 Metal, 20 Crystal"
+static func _format_cost(costs: Dictionary) -> String:
+	if costs.is_empty():
+		return "Free"
+	var parts: PackedStringArray = []
+	for res_type: StringName in costs:
+		parts.append("%d %s" % [costs[res_type], String(res_type).capitalize()])
+	return ", ".join(parts)
 
 
 static func _safe_disconnect(sig: Signal, callable: Callable) -> void:

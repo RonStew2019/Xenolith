@@ -272,4 +272,14 @@ func _apply_phase_config(phase: Phase) -> void:
 			_threat_manager.fauna_swarm_strength_min = 1.0
 			_threat_manager.fauna_swarm_strength_max = 2.0
 
+	# Configure carrier harvest rate multiplier for this phase.
+	if _carrier != null:
+		match phase:
+			Phase.EARLY:
+				_carrier.harvest_rate_multiplier = EconomyConfig.HARVEST_MULTIPLIER_EARLY
+			Phase.MID:
+				_carrier.harvest_rate_multiplier = EconomyConfig.HARVEST_MULTIPLIER_MID
+			Phase.LATE:
+				_carrier.harvest_rate_multiplier = EconomyConfig.HARVEST_MULTIPLIER_LATE
+
 	print("[ProgressionManager] Applied %s config to ThreatManager" % PHASE_NAMES[phase])

@@ -302,18 +302,32 @@ func _on_weapon_slot_changed(index: int, slot_name: StringName, weapon_ids: Arra
 		_weapon_selections.erase(slot_name)
 	else:
 		_weapon_selections[slot_name] = weapon_ids[index - 1]
+	# Refresh cost display to include weapon costs.
+	if _selected_chassis != null:
+		_update_cost_display(_selected_chassis)
+		_update_queue_button()
 
 
 func _update_cost_display(chassis: MechChassis) -> void:
-	if chassis.resource_costs.is_empty():
+	# Build total cost including weapons.
+	var total_costs: Dictionary = chassis.resource_costs.duplicate()
+	for slot_name: StringName in _weapon_selections:
+		var weapon_id: StringName = _weapon_selections[slot_name]
+		if weapon_id == &"":
+			continue
+		var weapon_cost: Dictionary = EconomyConfig.get_weapon_cost(weapon_id)
+		for res_type: StringName in weapon_cost:
+			total_costs[res_type] = total_costs.get(res_type, 0) + weapon_cost[res_type]
+
+	if total_costs.is_empty():
 		_cost_label.text = "Cost: Free"
 		_cost_label.add_theme_color_override("font_color", SUCCESS_COLOR)
 		return
 
 	var parts: PackedStringArray = []
 	var can_afford := true
-	for res_type: StringName in chassis.resource_costs:
-		var needed: int = chassis.resource_costs[res_type]
+	for res_type: StringName in total_costs:
+		var needed: int = total_costs[res_type]
 		var have: int = _inventory.get_amount(res_type) if _inventory else 0
 		parts.append("%s: %d/%d" % [String(res_type).to_pascal_case(), have, needed])
 		if have < needed:
@@ -336,8 +350,15 @@ func _update_queue_button() -> void:
 	if _build_queue.get_fabrication_speed() <= 0.0:
 		reasons.append("No fabricator installed")
 
-	# Check resources
-	var costs: Dictionary = _selected_chassis.resource_costs
+	# Check resources — use total cost (chassis + weapons)
+	var costs: Dictionary = _selected_chassis.resource_costs.duplicate()
+	for slot_name: StringName in _weapon_selections:
+		var weapon_id: StringName = _weapon_selections[slot_name]
+		if weapon_id == &"":
+			continue
+		var weapon_cost: Dictionary = EconomyConfig.get_weapon_cost(weapon_id)
+		for res_type: StringName in weapon_cost:
+			costs[res_type] = costs.get(res_type, 0) + weapon_cost[res_type]
 	if _inventory:
 		for res_type: StringName in costs:
 			if not _inventory.has_enough(res_type, costs[res_type]):

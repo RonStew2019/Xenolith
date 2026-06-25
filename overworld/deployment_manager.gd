@@ -28,9 +28,6 @@ signal combat_ended()
 
 # -- Constants -------------------------------------------------------------
 
-## Fuel cost per mech deployed into combat.
-const DEPLOY_COST_PER_MECH: int = 5
-
 ## Resource type used for deployment costs.
 const FUEL_RESOURCE: StringName = &"fuel"
 
@@ -145,8 +142,23 @@ func get_pilot_index() -> int:
 
 
 ## Total fuel cost for the current selection.
+##
+## Sums the [member MechChassis.deploy_fuel_cost] of each selected mech's
+## chassis.  Falls back to 5 if a blueprint has no chassis set.
 func get_deploy_cost() -> int:
-	return _selected_indices.size() * DEPLOY_COST_PER_MECH
+	var total: int = 0
+	if carrier == null:
+		return 0
+	var hangar: Hangar = carrier.get_hangar()
+	var mechs: Array[MechBlueprint] = hangar.get_mechs()
+	for idx: int in _selected_indices:
+		if idx >= 0 and idx < mechs.size():
+			var bp: MechBlueprint = mechs[idx]
+			if bp.chassis != null:
+				total += bp.chassis.deploy_fuel_cost
+			else:
+				total += 5  # fallback
+	return total
 
 
 ## Whether the carrier's inventory can cover [method get_deploy_cost].

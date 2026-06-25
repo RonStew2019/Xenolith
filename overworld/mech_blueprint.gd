@@ -29,12 +29,20 @@ class_name MechBlueprint
 
 ## Total resource cost to fabricate this blueprint.
 ##
-## For now this is just the chassis cost.  When weapons have their own
-## costs, they'll be folded in here.
+## Chassis base cost plus per-weapon costs from [EconomyConfig].
 func get_total_cost() -> Dictionary:
-	if chassis == null:
-		return {}
-	return chassis.resource_costs.duplicate()
+	var costs: Dictionary = {}
+	if chassis != null:
+		costs = chassis.resource_costs.duplicate()
+	# Add weapon costs.
+	for slot_name: StringName in weapon_assignments:
+		var weapon_id: StringName = weapon_assignments[slot_name]
+		if weapon_id == &"":
+			continue
+		var weapon_cost: Dictionary = EconomyConfig.get_weapon_cost(weapon_id)
+		for res_type: StringName in weapon_cost:
+			costs[res_type] = costs.get(res_type, 0) + weapon_cost[res_type]
+	return costs
 
 
 ## Total build time in seconds (before fabricator speed multiplier).

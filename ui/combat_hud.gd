@@ -53,7 +53,6 @@ const FONT_SMALL := 11
 # Reserve panel
 const RESERVE_PANEL_WIDTH := 320.0
 const RESERVE_PANEL_HEIGHT := 360.0
-const DEPLOY_COST_PER_MECH: int = 5
 
 # Notification timing
 const NOTIF_FADE_IN := 0.25
@@ -270,21 +269,26 @@ func _rebuild_reserve_list() -> void:
 
 	# Fuel display
 	var fuel: int = inventory.get_amount(&"fuel")
-	_reserve_fuel_label.text = "Fuel: %d  (cost: %d per mech)" % [fuel, DEPLOY_COST_PER_MECH]
-	var can_afford: bool = inventory.has_enough(&"fuel", DEPLOY_COST_PER_MECH)
-	_reserve_fuel_label.add_theme_color_override(
-		"font_color", LABEL_COLOR if can_afford else DANGER_COLOR
-	)
+	_reserve_fuel_label.text = "Fuel: %d" % fuel
+	var any_affordable: bool = false
 
 	_reserve_empty_label.visible = mechs.is_empty()
 
 	for i: int in mechs.size():
 		var bp: MechBlueprint = mechs[i]
-		var row := _build_reserve_row(bp, i, can_afford)
+		var mech_cost: int = bp.chassis.deploy_fuel_cost if bp.chassis != null else 5
+		var can_afford: bool = inventory.has_enough(&"fuel", mech_cost)
+		if can_afford:
+			any_affordable = true
+		var row := _build_reserve_row(bp, i, can_afford, mech_cost)
 		_reserve_list.add_child(row)
 
+	_reserve_fuel_label.add_theme_color_override(
+		"font_color", LABEL_COLOR if any_affordable or mechs.is_empty() else DANGER_COLOR
+	)
 
-func _build_reserve_row(bp: MechBlueprint, index: int, can_afford: bool) -> PanelContainer:
+
+func _build_reserve_row(bp: MechBlueprint, index: int, can_afford: bool, fuel_cost: int = 5) -> PanelContainer:
 	var panel := PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = ROW_BG
@@ -313,6 +317,12 @@ func _build_reserve_row(bp: MechBlueprint, index: int, can_afford: bool) -> Pane
 		var chassis_text := "Chassis: %s" % String(bp.chassis.chassis_name)
 		var chassis_lbl := _make_label(chassis_text, DIM_COLOR, FONT_SMALL)
 		info_vbox.add_child(chassis_lbl)
+
+	# Fuel cost label
+	var cost_lbl := _make_label("%d fuel" % fuel_cost, DIM_COLOR, FONT_SMALL)
+	cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	cost_lbl.custom_minimum_size.x = 60.0
+	hbox.add_child(cost_lbl)
 
 	# Deploy button (right side)
 	var deploy_btn := _make_button("Deploy", ACCENT_COLOR)
