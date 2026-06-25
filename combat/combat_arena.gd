@@ -401,10 +401,25 @@ func _build_enemy_representation() -> void:
 		body.setup_reactor(ss * 200.0, ss * 150.0, FAUNA_HIVE_ARMOR)
 		_build_hive_visual(body)
 	elif threat_type == &"enemy_carrier":
-		var st: float = _threat.strength if _threat != null else 1.0
+		var enemy_carrier: EnemyCarrier = _threat as EnemyCarrier
+		var st: float = enemy_carrier.strength if enemy_carrier != null else 1.0
+		var arch: EnemyCarrierArchetype = enemy_carrier.archetype if enemy_carrier != null else null
 		body.display_name = _threat.entity_name if _threat != null else &"Enemy Carrier"
-		body.setup_reactor(st * 250.0, st * 200.0, ENEMY_CARRIER_ARMOR)
-		_build_enemy_carrier_visual(body)
+		# Use archetype-driven stats when available, fall back to hardcoded defaults.
+		var integrity: float = (arch.reactor_integrity_mult if arch else 250.0) * st
+		var max_heat: float = (arch.reactor_max_heat_mult if arch else 200.0) * st
+		var armor_val: float = arch.armor if arch else ENEMY_CARRIER_ARMOR
+		var reactor := body.setup_reactor(integrity, max_heat, armor_val)
+		# Automated defense turrets from archetype.
+		var def_strength: float = arch.defense_strength if arch else 0.0
+		if def_strength > 0.0:
+			var defense_effect := CarrierDefenseEffect.new(
+				def_strength, 12.0, 1, body
+			)
+			reactor.apply_effect(defense_effect)
+		var vis_scale: Vector3 = arch.box_scale if arch else Vector3.ONE
+		var vis_color: Color = arch.color if arch else ENEMY_CARRIER_COLOR
+		_build_enemy_carrier_visual(body, vis_scale, vis_color)
 	else:
 		# Fallback — generic red box with default stats.
 		body.display_name = _threat.entity_name if _threat != null else &"Enemy"
@@ -439,16 +454,20 @@ func _build_hive_visual(parent: StaticBody3D) -> void:
 	parent.add_child(col)
 
 
-func _build_enemy_carrier_visual(parent: StaticBody3D) -> void:
-	## Scaled-up version of EnemyCarrier._create_visual: red box.
-	var box_size := Vector3(1.0, 0.7, 1.0) * ENEMY_SCALE
+func _build_enemy_carrier_visual(
+	parent: StaticBody3D,
+	scale_factor: Vector3 = Vector3.ONE,
+	color: Color = ENEMY_CARRIER_COLOR,
+) -> void:
+	## Scaled-up version of EnemyCarrier._create_visual, tinted per archetype.
+	var box_size := Vector3(1.0, 0.7, 1.0) * scale_factor * ENEMY_SCALE
 
 	var mesh_inst := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = box_size
 	mesh_inst.mesh = box
 	mesh_inst.position.y = box_size.y / 2.0
-	mesh_inst.material_override = _make_material(ENEMY_CARRIER_COLOR)
+	mesh_inst.material_override = _make_material(color)
 	parent.add_child(mesh_inst)
 
 	var col := CollisionShape3D.new()

@@ -36,10 +36,6 @@ signal engagement_resolved(result: Dictionary)
 
 # -- Constants -------------------------------------------------------------
 
-## Fuel cost per reserve mech deployed mid-combat (mirrors
-## [member DeploymentManager.DEPLOY_COST_PER_MECH]).
-const DEPLOY_COST_PER_MECH: int = 5
-
 ## Resource type used for deployment costs.
 const FUEL_RESOURCE: StringName = &"fuel"
 
@@ -100,6 +96,12 @@ var _fauna_mobs: Array = []
 
 ## Count of fauna kills during this engagement.
 var _fauna_kills: int = 0
+
+## Enemy AI mechs deployed by enemy carriers (tracked separately).
+var _enemy_mechs: Array[MechBody] = []
+
+## Count of enemy mech kills during this engagement.
+var _enemy_mech_kills: int = 0
 
 ## The in-combat HUD overlay (created on engagement start, freed on cleanup).
 var _combat_hud: CombatHUD = null
@@ -201,12 +203,16 @@ func begin_engagement(
 	if _piloted_mech == null:
 		push_warning("[EngagementManager] No piloted mech in deployed array!")
 
-	# -- Spawn fauna mobs for fauna_hive engagements ----------------------
+	# -- Spawn threat-specific combatants ----------------------------------
 	_fauna_mobs.clear()
 	_fauna_kills = 0
+	_enemy_mechs.clear()
+	_enemy_mech_kills = 0
 	var threat_type: StringName = _threat.get_threat_type() if _threat != null else &""
 	if threat_type == &"fauna_hive":
 		_spawn_fauna(arena)
+	elif threat_type == &"enemy_carrier":
+		_spawn_enemy_mechs(arena)
 
 	# -- Combat HUD --------------------------------------------------------
 	if _combat_hud != null:
@@ -244,17 +250,22 @@ func deploy_reserve(hangar_index: int) -> bool:
 		])
 		return false
 
+	# Peek at the blueprint to determine fuel cost (before removing).
+	var mechs: Array[MechBlueprint] = hangar.get_mechs()
+	var bp: MechBlueprint = mechs[hangar_index]
+	var fuel_cost: int = bp.chassis.deploy_fuel_cost if bp.chassis != null else 5
+
 	# Fuel check.
-	if not inventory.has_enough(FUEL_RESOURCE, DEPLOY_COST_PER_MECH):
-		print("[EngagementManager] Not enough fuel for reserve (need %d)" % DEPLOY_COST_PER_MECH)
+	if not inventory.has_enough(FUEL_RESOURCE, fuel_cost):
+		print("[EngagementManager] Not enough fuel for reserve (need %d)" % fuel_cost)
 		return false
 
 	# Pull mech, pay cost.
-	var bp: MechBlueprint = hangar.remove_mech(hangar_index)
+	bp = hangar.remove_mech(hangar_index)
 	if bp == null:
 		push_warning("[EngagementManager] Hangar.remove_mech returned null")
 		return false
-	inventory.remove_resource(FUEL_RESOURCE, DEPLOY_COST_PER_MECH)
+	inventory.remove_resource(FUEL_RESOURCE, fuel_cost)
 
 	# Spawn into arena.
 	var spawn_points: Array[Vector3] = _arena.get_spawn_points()
@@ -269,11 +280,11 @@ func deploy_reserve(hangar_index: int) -> bool:
 		_on_mech_breached.bind(target)
 	)
 
-	_fuel_spent += DEPLOY_COST_PER_MECH
+	_fuel_spent += fuel_cost
 	_total_deployed += 1
 
 	print("[EngagementManager] Reserve deployed: %s (cost %d fuel)" % [
-		bp.blueprint_name, DEPLOY_COST_PER_MECH,
+		bp.blueprint_name, fuel_cost,
 	])
 	reserve_deployed.emit(target, bp)
 	return true
@@ -301,6 +312,19 @@ func get_alive_mechs() -> Array[MechBody]:
 ## Whether an engagement is currently running.
 func is_engaged() -> bool:
 	return _is_engaged
+
+
+## Return the deployment fuel cost for the mech at [param hangar_index].
+## Returns 0 if the index is invalid or carrier is unavailable.
+func get_reserve_deploy_cost(hangar_index: int) -> int:
+	if _carrier == null:
+		return 0
+	var hangar: Hangar = _carrier.get_hangar()
+	var mechs: Array[MechBlueprint] = hangar.get_mechs()
+	if hangar_index < 0 or hangar_index >= mechs.size():
+		return 0
+	var bp: MechBlueprint = mechs[hangar_index]
+	return bp.chassis.deploy_fuel_cost if bp.chassis != null else 5
 
 
 # -- Mech Construction (private) ------------------------------------------
@@ -449,6 +473,102 @@ func _on_fauna_breached(fauna: FaunaMob) -> void:
 	print("[EngagementManager] Fauna killed (%d total)" % _fauna_kills)
 
 
+# -- Enemy Mech Spawning (private) ----------------------------------------
+
+## Spawn AI-controlled enemy mechs from the carrier's archetype complement.
+func _spawn_enemy_mechs(arena: CombatArena) -> void:
+	var enemy_carrier: EnemyCarrier = _threat as EnemyCarrier
+	if enemy_carrier == null or enemy_carrier.archetype == null:
+		print("[EngagementManager] No archetype on enemy carrier — skipping mech spawn")
+		return
+
+	var complement: Array[Dictionary] = enemy_carrier.archetype.mech_complement
+	if complement.is_empty():
+		return
+
+	var enemy_pos: Vector3 = arena.get_enemy_target().position \
+		if arena.get_enemy_target() != null \
+		else Vector3(0.0, 0.0, -CombatArena.SPAWN_OFFSET_Z)
+
+	var mech_count: int = complement.size()
+	for i: int in range(mech_count):
+		var entry: Dictionary = complement[i]
+		var chassis_id: StringName = entry.get("chassis", &"dogfighter")
+		var preset: StringName = entry.get("weapon_preset", &"basic")
+		var bp: MechBlueprint = _build_enemy_blueprint(chassis_id, preset, i)
+
+		# Spread around the enemy carrier.
+		var angle: float = TAU * float(i) / float(mech_count)
+		var offset: float = randf_range(4.0, 8.0)
+		var spawn_pos := Vector3(
+			enemy_pos.x + cos(angle) * offset,
+			0.0,
+			enemy_pos.z + sin(angle) * offset,
+		)
+
+		var mech: MechBody = _create_mech_target(bp, spawn_pos, false)
+		mech.team = 1  # Enemy team.
+		arena.add_child(mech)
+		_enemy_mechs.append(mech)
+
+		mech.get_reactor().reactor_breached.connect(
+			_on_enemy_mech_breached.bind(mech)
+		)
+
+		print("[EngagementManager] Enemy mech deployed: %s at (%.1f, %.1f)" % [
+			bp.blueprint_name, spawn_pos.x, spawn_pos.z,
+		])
+
+	print("[EngagementManager] Spawned %d enemy mechs for %s" % [
+		mech_count, enemy_carrier.archetype.display_name,
+	])
+
+
+## Build a [MechBlueprint] for an enemy AI mech based on chassis + preset.
+func _build_enemy_blueprint(
+	chassis_id: StringName, preset: StringName, index: int,
+) -> MechBlueprint:
+	if preset == &"basic":
+		if chassis_id == &"bomber":
+			var bp := ChassisPresets.basic_bomber_blueprint()
+			bp.blueprint_name = &"Enemy Bomber %d" % index
+			return bp
+		else:
+			var bp := ChassisPresets.basic_dogfighter_blueprint()
+			bp.blueprint_name = &"Enemy Dogfighter %d" % index
+			return bp
+
+	# Status-effect preset — equip nasty weapons.
+	if chassis_id == &"bomber":
+		var bp := MechBlueprint.new()
+		bp.blueprint_name = &"Enemy Bomber %d" % index
+		bp.chassis = ChassisPresets.bomber_chassis()
+		bp.weapon_assignments = {
+			&"l_hand": &"thermal_fist",
+			&"r_hand": &"thermal_fist",
+			&"artillery": &"emp_mortar",
+		}
+		return bp
+	else:
+		var bp := MechBlueprint.new()
+		bp.blueprint_name = &"Enemy Dogfighter %d" % index
+		bp.chassis = ChassisPresets.dogfighter_chassis()
+		bp.weapon_assignments = {
+			&"l_hand": &"venom_fist",
+			&"r_hand": &"venom_fist",
+			&"l_shoulder": &"cryo_cannon",
+			&"r_shoulder": &"cryo_cannon",
+		}
+		return bp
+
+
+func _on_enemy_mech_breached(mech: MechBody) -> void:
+	if not _is_engaged:
+		return
+	_enemy_mech_kills += 1
+	print("[EngagementManager] Enemy mech destroyed (%d total)" % _enemy_mech_kills)
+
+
 # -- Resolution (private) -------------------------------------------------
 
 func _resolve_victory() -> void:
@@ -503,6 +623,8 @@ func _cleanup() -> void:
 	_deployed_blueprints.clear()
 	_fauna_mobs.clear()
 	_fauna_kills = 0
+	_enemy_mechs.clear()
+	_enemy_mech_kills = 0
 	_piloted_mech = null
 	_piloted_blueprint = null
 	_arena = null
@@ -558,7 +680,12 @@ func _on_deployment_launched(
 	_pending_deployed = deployed_mechs.duplicate()
 	_pending_piloted = piloted_mech
 	_threat = threat
-	_fuel_spent = deployed_mechs.size() * DEPLOY_COST_PER_MECH
+	_fuel_spent = 0
+	for mech: MechBlueprint in deployed_mechs:
+		if mech.chassis != null:
+			_fuel_spent += mech.chassis.deploy_fuel_cost
+		else:
+			_fuel_spent += 5
 	print("[EngagementManager] Received deployment — %d mechs, pilot: %s" % [
 		deployed_mechs.size(),
 		piloted_mech.blueprint_name if piloted_mech != null else "none",

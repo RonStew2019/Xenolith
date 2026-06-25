@@ -16,6 +16,9 @@ class_name EnemyCarrier
 ## Combat power — determines difficulty and mech complement in engagement.
 var strength: float = 1.0
 
+## Archetype (scout/standard/fortress) — set automatically by [method set_strength].
+var archetype: EnemyCarrierArchetype = null
+
 ## Turns between moves.  Higher = slower.  Derived from [member strength]
 ## via [method set_strength].
 var move_interval: int = 2
@@ -53,14 +56,17 @@ func get_threat_type() -> StringName:
 	return &"enemy_carrier"
 
 
-## Create a red-tinted box similar to the player carrier.
+## Create a tinted box whose color and scale come from the archetype.
 func _create_visual() -> void:
+	var color: Color = archetype.color if archetype != null else ENEMY_COLOR
+	var scale_factor: Vector3 = archetype.box_scale if archetype != null else Vector3.ONE
+	var base_size := Vector3(1.0, 0.7, 1.0) * scale_factor
 	var mesh_instance := MeshInstance3D.new()
 	var box := BoxMesh.new()
-	box.size = Vector3(1.0, 0.7, 1.0)
+	box.size = base_size
 	mesh_instance.mesh = box
-	mesh_instance.position.y = box.size.y / 2.0
-	mesh_instance.material_override = _make_material(ENEMY_COLOR)
+	mesh_instance.position.y = base_size.y / 2.0
+	mesh_instance.material_override = _make_material(color)
 	add_child(mesh_instance)
 	_visual = mesh_instance
 
@@ -73,9 +79,12 @@ func _create_visual() -> void:
 ## [constant MAX_MOVE_INTERVAL] based on strength 1.0–10.0.
 func set_strength(value: float) -> void:
 	strength = value
+	archetype = EnemyCarrierArchetype.for_strength(value)
 	var t: float = clampf((strength - 1.0) / 9.0, 0.0, 1.0)
 	move_interval = roundi(lerpf(float(MIN_MOVE_INTERVAL), float(MAX_MOVE_INTERVAL), t))
-	print("[EnemyCarrier] Strength %.1f → move every %d turns" % [strength, move_interval])
+	print("[EnemyCarrier] Strength %.1f → %s, move every %d turns" % [
+		strength, archetype.archetype_name, move_interval,
+	])
 
 
 # -- Private Helpers -------------------------------------------------------

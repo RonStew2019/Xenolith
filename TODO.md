@@ -207,9 +207,9 @@ These existing systems carry forward largely intact:
   - [x] Resource costs for mech deployment (incentivize minimum force)
   - [x] Build costs for mechs and carrier nodes
   - [x] Harvest rates vs. consumption rates
-- [ ] **Enemy carrier variety**
-  - [ ] Weak/fast scout carriers
-  - [ ] Strong/slow fortress carriers
+- [x] **Enemy carrier variety**
+  - [x] Weak/fast scout carriers
+  - [x] Strong/slow fortress carriers
   - [ ] Carrier loadout variety (different defense nodes, mech complements)
 - [x] **Special status effects (stretch)**
   - [x] Beyond pure heat — once the core loop is solid
