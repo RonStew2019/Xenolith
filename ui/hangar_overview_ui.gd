@@ -194,6 +194,11 @@ func _on_module_changed(_module: CarrierModule, _slot_index: int) -> void:
 
 # -- Refresh ---------------------------------------------------------------
 
+## Public entry point — call when the screen becomes visible.
+func refresh() -> void:
+	_rebuild_all()
+
+
 func _rebuild_all() -> void:
 	_update_capacity_label()
 	_rebuild_mech_list()

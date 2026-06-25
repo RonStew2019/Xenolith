@@ -106,6 +106,7 @@ func open() -> void:
 	_is_open = true
 	_set_visible(true)
 	_play_entrance()
+	_refresh_active_tab()
 	if _carrier:
 		_carrier.is_moving = true  # Block carrier movement while open
 	opened.emit()
@@ -261,6 +262,18 @@ func _switch_tab(index: int) -> void:
 	# Update tab button styles
 	for i: int in _tab_buttons.size():
 		_style_tab_button(_tab_buttons[i], i == index)
+
+	_refresh_active_tab()
+
+
+## Refresh whichever child screen is currently visible so it reflects
+## the latest inventory / hangar / module state.
+func _refresh_active_tab() -> void:
+	if _active_tab < 0 or _active_tab >= _screens.size():
+		return
+	var screen: Control = _screens[_active_tab]
+	if screen.has_method("refresh"):
+		screen.refresh()
 
 
 func _style_tab_button(btn: Button, is_active: bool) -> void:

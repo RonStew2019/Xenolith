@@ -1,5 +1,6 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
+[ext_resource type="Script" path="res://overworld/test_level_config.gd" id="12"]
 [ext_resource type="Script" path="res://overworld/hex_grid.gd" id="1"]
 [ext_resource type="Script" path="res://overworld/carrier.gd" id="2"]
 [ext_resource type="Script" path="res://overworld/overworld_camera.gd" id="3"]
@@ -14,9 +15,12 @@
 
 [node name="HexOverworld" type="Node3D"]
 
+[node name="TestLevelConfig" type="Node" parent="."]
+script = ExtResource("12")
+
 [node name="HexGrid" type="Node3D" parent="."]
 script = ExtResource("1")
-grid_radius = 5
+grid_radius = 4
 cell_size = 2.0
 
 [node name="Carrier" type="Node3D" parent="."]

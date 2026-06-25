@@ -23,6 +23,22 @@ class_name HexGrid
 ## Outer radius of each hex (center to vertex), in world units.
 @export var cell_size: float = 2.0
 
+## When [code]false[/code], all cells default to [constant HexCell.TerrainType.MOUNTAIN]
+## unless overridden by [member terrain_overrides].  No random resources,
+## flora, desert, or irradiated hexes are generated.
+@export var use_random_terrain: bool = true
+
+## Maps [code]Vector2i(q, r)[/code] → [constant HexCell.TerrainType].
+## Cells whose coords appear here use the specified terrain instead of
+## the random roll (or the MOUNTAIN default when [member use_random_terrain]
+## is [code]false[/code]).
+var terrain_overrides: Dictionary = {}
+
+## Maps [code]Vector2i(q, r)[/code] → [code]{ "type": &"metal", "amount": 300.0 }[/code].
+## Applied after terrain selection for RESOURCE cells, overriding the
+## random resource type and amount.
+var resource_overrides: Dictionary = {}
+
 # -- Terrain colours -------------------------------------------------------
 
 const TERRAIN_COLORS: Dictionary = {
@@ -30,7 +46,14 @@ const TERRAIN_COLORS: Dictionary = {
 	HexCell.TerrainType.FLORA:      Color(0.2, 0.55, 0.25),
 	HexCell.TerrainType.DESERT:     Color(0.85, 0.75, 0.5),
 	HexCell.TerrainType.IRRADIATED: Color(0.6, 0.15, 0.6),
-	HexCell.TerrainType.RESOURCE:   Color(0.9, 0.7, 0.2),
+	HexCell.TerrainType.RESOURCE:   Color(0.9, 0.7, 0.2),  # fallback for unknown resource types
+}
+
+## Per-resource-type colours for RESOURCE hexes. Matches InventoryHUD palette.
+const RESOURCE_TYPE_COLORS: Dictionary = {
+	&"metal":   Color(0.55, 0.62, 0.7),   # blue-silver / industrial steel
+	&"crystal": Color(0.6, 0.3, 0.9),     # violet / precious
+	&"fuel":    Color(0.9, 0.55, 0.15),   # amber / warm orange
 }
 
 ## The six axial-coordinate direction vectors for flat-top hexes.
@@ -109,12 +132,24 @@ func _generate_grid() -> void:
 		var r_min: int = maxi(-grid_radius, -q - grid_radius)
 		var r_max: int = mini(grid_radius, -q + grid_radius)
 		for r: int in range(r_min, r_max + 1):
-			var terrain := _pick_terrain()
+			var coords := Vector2i(q, r)
+			var terrain: HexCell.TerrainType
+			if coords in terrain_overrides:
+				terrain = terrain_overrides[coords] as HexCell.TerrainType
+			elif use_random_terrain:
+				terrain = _pick_terrain()
+			else:
+				terrain = HexCell.TerrainType.MOUNTAIN
 			var cell := HexCell.new(q, r, terrain)
 			if terrain == HexCell.TerrainType.RESOURCE:
-				cell.resource_amount = randf_range(50.0, 150.0)
-				cell.resource_type = _pick_resource_type()
-			cells[Vector2i(q, r)] = cell
+				if coords in resource_overrides:
+					var res_data: Dictionary = resource_overrides[coords]
+					cell.resource_type = res_data.get("type", &"metal")
+					cell.resource_amount = res_data.get("amount", 100.0)
+				elif use_random_terrain:
+					cell.resource_amount = randf_range(50.0, 150.0)
+					cell.resource_type = _pick_resource_type()
+			cells[coords] = cell
 
 
 func _pick_terrain() -> HexCell.TerrainType:
@@ -149,12 +184,12 @@ func _render_grid() -> void:
 	for coords: Vector2i in cells:
 		var cell: HexCell = cells[coords]
 		var world_pos := axial_to_world(cell.q, cell.r)
-		var mesh_instance := _create_hex_mesh(cell.terrain)
+		var mesh_instance := _create_hex_mesh(cell)
 		mesh_instance.position = world_pos
 		add_child(mesh_instance)
 
 
-func _create_hex_mesh(terrain: HexCell.TerrainType) -> MeshInstance3D:
+func _create_hex_mesh(cell: HexCell) -> MeshInstance3D:
 	var mesh_instance := MeshInstance3D.new()
 	var mesh := ArrayMesh.new()
 	var scaled_size: float = cell_size * HEX_MESH_SCALE
@@ -165,7 +200,7 @@ func _create_hex_mesh(terrain: HexCell.TerrainType) -> MeshInstance3D:
 	_add_side_faces(mesh, scaled_size, HEX_PRISM_HEIGHT)
 
 	mesh_instance.mesh = mesh
-	mesh_instance.material_override = _make_material(terrain)
+	mesh_instance.material_override = _make_material(cell)
 	return mesh_instance
 
 
@@ -227,9 +262,15 @@ func _add_side_faces(mesh: ArrayMesh, size: float, height: float) -> void:
 	st.commit(mesh)
 
 
-func _make_material(terrain: HexCell.TerrainType) -> StandardMaterial3D:
+func _make_material(cell: HexCell) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = TERRAIN_COLORS.get(terrain, Color.MAGENTA)
+	if cell.terrain == HexCell.TerrainType.RESOURCE:
+		mat.albedo_color = RESOURCE_TYPE_COLORS.get(
+			cell.resource_type,
+			TERRAIN_COLORS[HexCell.TerrainType.RESOURCE],
+		)
+	else:
+		mat.albedo_color = TERRAIN_COLORS.get(cell.terrain, Color.MAGENTA)
 	return mat
 
 

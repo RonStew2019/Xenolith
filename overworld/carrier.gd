@@ -34,7 +34,7 @@ signal module_uninstalled(module: CarrierModule, slot_index: int)
 # -- Exported Stats --------------------------------------------------------
 
 ## Maximum hex distance the carrier can move per action.
-@export var move_range: int = 2
+@export var move_range: int = 1
 
 ## Current hull integrity.
 @export var hull: float = 100.0
@@ -48,6 +48,15 @@ signal module_uninstalled(module: CarrierModule, slot_index: int)
 
 ## Maximum number of module slots on the carrier.
 @export var max_slots: int = 6
+
+## Starting metal — enough for one dogfighter build by default.
+@export var starting_metal: int = 50
+
+## Starting crystal — supplements the first chassis.
+@export var starting_crystal: int = 20
+
+## Starting fuel — covers an initial deployment or two.
+@export var starting_fuel: int = 20
 
 ## Phase-based harvest rate multiplier applied on top of module bonuses.
 var harvest_rate_multiplier: float = 1.0
@@ -202,10 +211,10 @@ func get_reachable_hexes() -> Array[HexCell]:
 	)
 	var reachable: Array[HexCell] = []
 	for cell: HexCell in candidates:
-		# Skip own hex and occupied hexes.
+		# Skip own hex and hexes occupied by non-threats (e.g. another carrier).
 		if cell.axial_coords() == current_hex:
 			continue
-		if cell.occupant != null:
+		if cell.occupant != null and not cell.occupant is ThreatEntity:
 			continue
 		reachable.append(cell)
 	return reachable
@@ -335,8 +344,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	var cell := hex_grid.get_cell(target.x, target.y)
 	if cell == null:
 		return  # Clicked outside the grid.
-	if cell.occupant != null:
-		return  # Hex already occupied.
+	if cell.occupant != null and not cell.occupant is ThreatEntity:
+		return  # Hex occupied by non-threat entity.
 
 	# Range check — use HexCell.distance_to() for correctness.
 	var origin_cell := hex_grid.get_cell(current_hex.x, current_hex.y)
@@ -409,10 +418,13 @@ func _setup_inventory() -> void:
 	_inventory = Inventory.new()
 	_inventory.name = "Inventory"
 	add_child(_inventory)
-	# Starting resources — enough for one dogfighter + first deployment.
-	_inventory.add_resource(&"metal", 50)
-	_inventory.add_resource(&"crystal", 20)
-	_inventory.add_resource(&"fuel", 20)
+	# Starting resources — configurable via exports or TestLevelConfig.
+	if starting_metal > 0:
+		_inventory.add_resource(&"metal", starting_metal)
+	if starting_crystal > 0:
+		_inventory.add_resource(&"crystal", starting_crystal)
+	if starting_fuel > 0:
+		_inventory.add_resource(&"fuel", starting_fuel)
 
 
 ## Create and attach the carrier's [Hangar] child node.

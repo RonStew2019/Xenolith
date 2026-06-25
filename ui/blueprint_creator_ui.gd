@@ -523,6 +523,17 @@ func _on_resource_changed(_resource_type: StringName, _new_amount: int) -> void:
 		_update_cost_display(_selected_chassis)
 	_update_queue_button()
 
+# -- Refresh ---------------------------------------------------------------
+
+## Public entry point — call when the screen becomes visible (tab switch,
+## overlay open) to ensure costs and queue state reflect current inventory.
+func refresh() -> void:
+	_refresh_resources()
+	if _selected_chassis:
+		_update_cost_display(_selected_chassis)
+	_update_queue_button()
+	_refresh_queue()
+
 # -- Resource Display ------------------------------------------------------
 
 func _refresh_resources() -> void:

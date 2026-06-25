@@ -77,6 +77,10 @@ const PHASE_NAMES: Dictionary = {
 
 # -- State -----------------------------------------------------------------
 
+## When [code]true[/code], locks the game in [constant Phase.EARLY] and
+## suppresses all automatic phase transitions.
+var test_mode: bool = false
+
 ## Current progression phase.
 var _current_phase: Phase = Phase.EARLY
 
@@ -188,6 +192,8 @@ func _on_mech_built(_blueprint: MechBlueprint) -> void:
 ## milestone-based trigger AND a turn-based fallback so the player is
 ## never stuck forever.
 func _check_phase_transition() -> void:
+	if test_mode:
+		return  # Locked — no phase transitions in test mode.
 	var new_phase: Phase = _current_phase
 
 	match _current_phase:

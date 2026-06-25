@@ -62,6 +62,13 @@ var fauna_swarm_strength_min: float = 1.0
 ## Maximum fauna [member FaunaHive.swarm_strength] when spawning.
 var fauna_swarm_strength_max: float = 1.5
 
+## When [code]true[/code], disables random spawning and places hives only
+## at the positions listed in [member test_hive_positions].
+var test_mode: bool = false
+
+## Explicit hive coordinates used when [member test_mode] is enabled.
+var test_hive_positions: Array[Vector2i] = []
+
 ## Default detection range (same hex + adjacent = 1).
 const DETECTION_RANGE: int = 1
 
@@ -129,8 +136,8 @@ func _process_turn() -> void:
 	# 2. Detection pass.
 	_check_detection()
 
-	# 3. Periodic spawning.
-	if _turns_elapsed % spawn_interval_turns == 0 and _threats.size() < max_threats:
+	# 3. Periodic spawning (disabled in test mode).
+	if not test_mode and _turns_elapsed % spawn_interval_turns == 0 and _threats.size() < max_threats:
 		_spawn_random_threat()
 
 	print("[ThreatManager] Turn %d — %d active threats" % [_turns_elapsed, _threats.size()])
@@ -183,6 +190,10 @@ func _on_carrier_moved(_from_hex: Vector2i, _to_hex: Vector2i) -> void:
 ## Place initial fauna hives on random non-edge, non-resource,
 ## non-carrier hexes.
 func _spawn_initial_hives() -> void:
+	if test_mode:
+		for pos: Vector2i in test_hive_positions:
+			spawn_fauna_hive(pos.x, pos.y)
+		return
 	var interior: Array[Vector2i] = _get_interior_hexes()
 	for i: int in range(initial_hive_count):
 		var hex: Vector2i = _get_random_empty_hex(interior)

@@ -28,6 +28,9 @@ const SWATCH_RADIUS := 2
 ## Color map for known resource types. Unknown types use FALLBACK_COLOR.
 const RESOURCE_COLORS: Dictionary = {
 	&"flux": Color(0.1, 0.8, 0.9),
+	&"metal": Color(0.55, 0.62, 0.7),
+	&"crystal": Color(0.6, 0.3, 0.9),
+	&"fuel": Color(0.9, 0.55, 0.15),
 }
 const FALLBACK_COLOR := Color(0.5, 0.5, 0.55)
 

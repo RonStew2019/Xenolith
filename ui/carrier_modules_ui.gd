@@ -45,6 +45,7 @@ const FONT_SMALL := 11
 # ── Internal refs ────────────────────────────────────────────────────────
 
 var _carrier: Carrier = null
+var _inventory: Inventory = null
 var _power_label: Label
 var _slots_label: Label
 var _installed_container: VBoxContainer
@@ -62,8 +63,11 @@ func bind_carrier(carrier: Carrier) -> void:
 	if _carrier:
 		_unbind()
 	_carrier = carrier
+	_inventory = carrier.get_inventory()
 	carrier.module_installed.connect(_on_module_installed)
 	carrier.module_uninstalled.connect(_on_module_uninstalled)
+	if _inventory:
+		_inventory.resource_changed.connect(_on_resource_changed)
 	_rebuild_all()
 
 
@@ -72,7 +76,10 @@ func _unbind() -> void:
 		return
 	_safe_disconnect(_carrier.module_installed, _on_module_installed)
 	_safe_disconnect(_carrier.module_uninstalled, _on_module_uninstalled)
+	if _inventory:
+		_safe_disconnect(_inventory.resource_changed, _on_resource_changed)
 	_carrier = null
+	_inventory = null
 
 # ── UI Construction ──────────────────────────────────────────────────────
 
@@ -361,7 +368,17 @@ func _on_install_pressed(factory: Callable) -> void:
 	# Carrier.install_module() handles resource cost validation & deduction.
 	_carrier.install_module(module)
 
+func _on_resource_changed(_resource_type: StringName, _new_amount: int) -> void:
+	_update_install_button_states()
+
+
 # ── Refresh ──────────────────────────────────────────────────────────────
+
+## Public entry point — call when the screen becomes visible (tab switch,
+## overlay open) to ensure button states reflect current inventory.
+func refresh() -> void:
+	_rebuild_all()
+
 
 func _rebuild_all() -> void:
 	_update_power_label()
