@@ -11,8 +11,12 @@ class_name EngagementManager
 ## engagement.
 ##
 ## [b]Victory:[/b] enemy target's reactor is breached.[br]
-## [b]Defeat:[/b] player carrier's reactor is breached, OR all deployed
-## mechs are destroyed with no reserves available.
+## [b]Defeat:[/b] player carrier's reactor is breached (including
+## voluntary self-destruct).[br]
+## [b]Draw:[/b] all fighters on both sides are destroyed while the
+## carriers / hive remain standing — carrier shunts back, threat stays.[br]
+## When all deployed mechs are destroyed the player enters spectator mode
+## with a free-flying camera and may choose to scuttle the carrier.
 
 # -- Signals ---------------------------------------------------------------
 
@@ -30,6 +34,12 @@ signal pilot_switched(new_pilot: MechBody, blueprint: MechBlueprint)
 
 ## A reserve mech was pulled from the hangar and deployed mid-combat.
 signal reserve_deployed(mech: MechBody, blueprint: MechBlueprint)
+
+## All player mechs have been destroyed — entering spectator mode.
+signal all_mechs_lost()
+
+## The engagement ended in a draw — all fighters on both sides destroyed.
+signal engagement_draw()
 
 ## Emitted after victory or defeat resolution with a summary Dictionary.
 signal engagement_resolved(result: Dictionary)
@@ -90,6 +100,12 @@ var _mechs_lost: int = 0
 
 ## Total mechs deployed (initial + reserves).
 var _total_deployed: int = 0
+
+## Whether the player is spectating (all mechs lost, watching the battle).
+var _spectating: bool = false
+
+## The free-flying [SpectatorCamera] created when spectating.
+var _spectator_camera: SpectatorCamera = null
 
 ## Spawned [FaunaMob] entities in the arena (tracked separately from mechs).
 var _fauna_mobs: Array = []
@@ -398,8 +414,11 @@ func _on_mech_breached(target: MechBody) -> void:
 		_piloted_mech = null
 		_piloted_blueprint = null
 		if not _try_switch_pilot():
-			print("[EngagementManager] No mechs remaining — defeat!")
-			_resolve_defeat()
+			# All player mechs dead — check if enemies are also all dead.
+			if _check_draw():
+				return  # Draw resolved — skip spectator mode.
+			print("[EngagementManager] No mechs remaining — entering spectator mode")
+			_enter_spectator_mode()
 
 
 # -- Pilot Switching (private) --------------------------------------------
@@ -471,6 +490,7 @@ func _on_fauna_breached(fauna: FaunaMob) -> void:
 		return
 	_fauna_kills += 1
 	print("[EngagementManager] Fauna killed (%d total)" % _fauna_kills)
+	_check_draw()
 
 
 # -- Enemy Mech Spawning (private) ----------------------------------------
@@ -567,9 +587,105 @@ func _on_enemy_mech_breached(mech: MechBody) -> void:
 		return
 	_enemy_mech_kills += 1
 	print("[EngagementManager] Enemy mech destroyed (%d total)" % _enemy_mech_kills)
+	_check_draw()
+
+
+# -- Draw Detection (private) ----------------------------------------------
+
+## Return [code]true[/code] if every enemy combatant (fauna mobs and enemy
+## mechs — NOT the enemy target itself) is dead.
+func _all_enemy_combatants_dead() -> bool:
+	for mob in _fauna_mobs:
+		if is_instance_valid(mob) and not mob._dead:
+			return false
+	for mech in _enemy_mechs:
+		if is_instance_valid(mech) and not mech._dead:
+			return false
+	# If there were no combatants at all, don't treat it as "all dead".
+	return not _fauna_mobs.is_empty() or not _enemy_mechs.is_empty()
+
+
+## Check whether both sides have lost all fighters.  If so, resolves the
+## engagement as a draw and returns [code]true[/code].
+func _check_draw() -> bool:
+	if not _is_engaged:
+		return false
+	if not get_alive_mechs().is_empty():
+		return false
+	if not _all_enemy_combatants_dead():
+		return false
+	# Both sides wiped — it's a draw.
+	_resolve_draw()
+	return true
+
+
+# -- Spectator Mode (private) ----------------------------------------------
+
+## Enter spectator mode when the last player mech is destroyed.
+## Spawns a free-flying camera and emits [signal all_mechs_lost].
+func _enter_spectator_mode() -> void:
+	_spectating = true
+	# Spawn the spectator camera on the next frame so the dying mech's
+	# camera teardown (queue_free) has a chance to complete.
+	call_deferred("_spawn_spectator_camera")
+	all_mechs_lost.emit()
+
+
+## Create a [SpectatorCamera] in the arena, positioned for a good overview.
+func _spawn_spectator_camera() -> void:
+	if _arena == null:
+		return
+	_spectator_camera = SpectatorCamera.new()
+	_spectator_camera.name = "SpectatorCamera"
+	# Position elevated, looking at the arena center (matches CombatCamera).
+	_spectator_camera.position = Vector3(0.0, 35.0, 45.0)
+	_spectator_camera.rotation_degrees = Vector3(-40.0, 0.0, 0.0)
+	_spectator_camera.fov = 60.0
+	_arena.add_child(_spectator_camera)
+
+
+# -- Self-Destruct (public) ------------------------------------------------
+
+## Force-breach the player carrier's reactor, triggering the normal
+## [method _on_carrier_breached] → [method _resolve_defeat] flow.
+## Intended for voluntary surrender when spectating.
+func self_destruct_carrier() -> void:
+	if not _is_engaged or _arena == null:
+		return
+	var carrier_target: CombatTarget = _arena.get_player_carrier_target()
+	if carrier_target == null:
+		return
+	var reactor: Node = carrier_target.get_reactor()
+	if reactor == null:
+		return
+	print("[EngagementManager] *** SELF-DESTRUCT — scuttling carrier! ***")
+	# Setting integrity to 0 triggers the setter's reactor_breached signal,
+	# which fires _on_carrier_breached() → _resolve_defeat().
+	reactor.integrity = 0.0
 
 
 # -- Resolution (private) -------------------------------------------------
+
+func _resolve_draw() -> void:
+	_is_engaged = false
+	print("[EngagementManager] *** DRAW — all fighters destroyed on both sides ***")
+
+	# Shunt the player carrier back to its previous hex — it was the
+	# aggressor that moved onto the contested hex.
+	if _carrier != null:
+		_carrier.shunt_back()
+		print("[EngagementManager] Carrier shunted back to %s" % str(_carrier.previous_hex))
+
+	# Threat stays alive on its hex — player can try again later.
+
+	var result: Dictionary = _build_result_draw()
+	engagement_resolved.emit(result)
+	engagement_draw.emit()
+
+	# Brief pause so the player can read the notification.
+	await get_tree().create_timer(END_COMBAT_DELAY).timeout
+	_cleanup()
+
 
 func _resolve_victory() -> void:
 	_is_engaged = false
@@ -619,6 +735,11 @@ func _cleanup() -> void:
 		_combat_hud.queue_free()
 		_combat_hud = null
 
+	if _spectator_camera != null:
+		_spectator_camera.queue_free()
+		_spectator_camera = null
+	_spectating = false
+
 	_deployed_targets.clear()
 	_deployed_blueprints.clear()
 	_fauna_mobs.clear()
@@ -652,12 +773,27 @@ func _cleanup() -> void:
 func _build_result(victory: bool, mechs_returned: int) -> Dictionary:
 	return {
 		"victory": victory,
+		"draw": false,
 		"threat_name": _threat.entity_name if _threat != null else &"Unknown",
 		"threat_type": _threat.get_threat_type() if _threat != null else &"",
 		"fuel_spent": _fuel_spent,
 		"mechs_deployed": _total_deployed,
 		"mechs_lost": _mechs_lost,
 		"mechs_survived": mechs_returned,
+	}
+
+
+## Build the post-engagement result summary for a draw.
+func _build_result_draw() -> Dictionary:
+	return {
+		"victory": false,
+		"draw": true,
+		"threat_name": _threat.entity_name if _threat != null else &"Unknown",
+		"threat_type": _threat.get_threat_type() if _threat != null else &"",
+		"fuel_spent": _fuel_spent,
+		"mechs_deployed": _total_deployed,
+		"mechs_lost": _mechs_lost,
+		"mechs_survived": 0,
 	}
 
 

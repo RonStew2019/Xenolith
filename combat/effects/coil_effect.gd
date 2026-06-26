@@ -15,10 +15,10 @@ func _init(p_source: Node = null) -> void:
 
 
 func on_apply(_reactor: Node) -> void:
-	if is_instance_valid(source):
+	if is_instance_valid(source) and "speed_multiplier" in source:
 		source.speed_multiplier -= SPEED_PENALTY
 
 
 func on_remove(_reactor: Node) -> void:
-	if is_instance_valid(source):
+	if is_instance_valid(source) and "speed_multiplier" in source:
 		source.speed_multiplier += SPEED_PENALTY

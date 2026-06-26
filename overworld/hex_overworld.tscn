@@ -1,6 +1,6 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
-[ext_resource type="Script" path="res://overworld/test_level_config.gd" id="12"]
+[ext_resource type="Script" path="res://overworld/game_level_config.gd" id="12"]
 [ext_resource type="Script" path="res://overworld/hex_grid.gd" id="1"]
 [ext_resource type="Script" path="res://overworld/carrier.gd" id="2"]
 [ext_resource type="Script" path="res://overworld/overworld_camera.gd" id="3"]
@@ -12,15 +12,16 @@
 [ext_resource type="Script" path="res://ui/overworld_hud.gd" id="9"]
 [ext_resource type="Script" path="res://ui/threat_indicator_manager.gd" id="10"]
 [ext_resource type="Script" path="res://overworld/progression_manager.gd" id="11"]
+[ext_resource type="Script" path="res://overworld/pause_controller.gd" id="13"]
 
 [node name="HexOverworld" type="Node3D"]
 
-[node name="TestLevelConfig" type="Node" parent="."]
+[node name="GameLevelConfig" type="Node" parent="."]
 script = ExtResource("12")
 
 [node name="HexGrid" type="Node3D" parent="."]
 script = ExtResource("1")
-grid_radius = 4
+grid_radius = 7
 cell_size = 2.0
 
 [node name="Carrier" type="Node3D" parent="."]
@@ -28,6 +29,7 @@ script = ExtResource("2")
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.447214, 0.894427, 0, -0.894427, 0.447214, 0, 20, 10)
+process_mode = 3
 script = ExtResource("3")
 fov = 50.0
 
@@ -45,9 +47,11 @@ script = ExtResource("5")
 script = ExtResource("10")
 
 [node name="OverworldHUD" type="CanvasLayer" parent="."]
+process_mode = 3
 script = ExtResource("9")
 
 [node name="CarrierCustomizationUI" type="CanvasLayer" parent="."]
+process_mode = 3
 script = ExtResource("4")
 
 [node name="DeploymentManager" type="Node" parent="."]
@@ -56,5 +60,10 @@ script = ExtResource("6")
 [node name="EngagementManager" type="Node" parent="."]
 script = ExtResource("8")
 
+[node name="PauseController" type="Node" parent="."]
+process_mode = 3
+script = ExtResource("13")
+
 [node name="DeploymentUI" type="CanvasLayer" parent="."]
+process_mode = 3
 script = ExtResource("7")

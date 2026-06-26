@@ -2,10 +2,12 @@ extends Node3D
 class_name HexGrid
 ## Generates, stores, and renders a flat-top hex grid on the XZ plane.
 ##
-## Hexes are addressed by axial coordinates (q, r).  The grid is generated
-## as a hexagonal shape with [member grid_radius] rings around the origin.
-## Each hex gets a coloured [MeshInstance3D] child and a backing [HexCell]
-## data object stored in [member cells].
+## Hexes are addressed by axial coordinates (q, r).  The grid starts as a
+## hexagonal shape with [member grid_radius] rings around the origin, then
+## dynamically expands as the player carrier moves near the frontier.
+##
+## Terrain is assigned via [FastNoiseLite] for spatially coherent biomes:
+## contiguous forests, mountain ranges, deserts, irradiated zones, etc.
 ##
 ## Flat-top hex math reference (size = outer radius, center-to-vertex):
 ##   Width  = 2 * size
@@ -15,28 +17,41 @@ class_name HexGrid
 ##   x = size * 1.5 * q
 ##   z = size * sqrt(3) * (r + q / 2.0)
 
+# -- Signals ---------------------------------------------------------------
+
+## Emitted after dynamic expansion generates new cells.
+## Includes coordinates of any new RESOURCE cells for hive placement.
+signal grid_expanded(new_cell_count: int, new_resource_coords: Array[Vector2i])
+
 # -- Configuration --------------------------------------------------------
 
-## Number of rings around the origin hex.  Total cells ≈ 3r²+3r+1.
+## Number of rings around the origin hex for initial generation.
+## Total cells ≈ 3r²+3r+1.
 @export var grid_radius: int = 5
 
 ## Outer radius of each hex (center to vertex), in world units.
 @export var cell_size: float = 2.0
 
 ## When [code]false[/code], all cells default to [constant HexCell.TerrainType.MOUNTAIN]
-## unless overridden by [member terrain_overrides].  No random resources,
-## flora, desert, or irradiated hexes are generated.
+## unless overridden by [member terrain_overrides].  No noise-based biomes
+## are generated.  Used by [TestLevelConfig] for deterministic scenarios.
 @export var use_random_terrain: bool = true
+
+## Seed for noise-based terrain generation.  0 = randomize each run.
+@export var world_seed: int = 0
+
+## How many rings ahead of the carrier to pre-generate when expanding.
+@export var expansion_radius: int = 5
 
 ## Maps [code]Vector2i(q, r)[/code] → [constant HexCell.TerrainType].
 ## Cells whose coords appear here use the specified terrain instead of
-## the random roll (or the MOUNTAIN default when [member use_random_terrain]
-## is [code]false[/code]).
+## noise-based selection (or the MOUNTAIN default when
+## [member use_random_terrain] is [code]false[/code]).
 var terrain_overrides: Dictionary = {}
 
 ## Maps [code]Vector2i(q, r)[/code] → [code]{ "type": &"metal", "amount": 300.0 }[/code].
 ## Applied after terrain selection for RESOURCE cells, overriding the
-## random resource type and amount.
+## noise-based resource type and amount.
 var resource_overrides: Dictionary = {}
 
 # -- Terrain colours -------------------------------------------------------
@@ -46,10 +61,10 @@ const TERRAIN_COLORS: Dictionary = {
 	HexCell.TerrainType.FLORA:      Color(0.2, 0.55, 0.25),
 	HexCell.TerrainType.DESERT:     Color(0.85, 0.75, 0.5),
 	HexCell.TerrainType.IRRADIATED: Color(0.6, 0.15, 0.6),
-	HexCell.TerrainType.RESOURCE:   Color(0.9, 0.7, 0.2),  # fallback for unknown resource types
+	HexCell.TerrainType.RESOURCE:   Color(0.9, 0.7, 0.2),  # fallback for unknown types
 }
 
-## Per-resource-type colours for RESOURCE hexes. Matches InventoryHUD palette.
+## Per-resource-type colours for RESOURCE hexes.  Matches InventoryHUD palette.
 const RESOURCE_TYPE_COLORS: Dictionary = {
 	&"metal":   Color(0.55, 0.62, 0.7),   # blue-silver / industrial steel
 	&"crystal": Color(0.6, 0.3, 0.9),     # violet / precious
@@ -73,11 +88,27 @@ const HEX_PRISM_HEIGHT: float = 0.15
 ## All cells keyed by [code]Vector2i(q, r)[/code].
 var cells: Dictionary = {}
 
+## Noise generator for biome selection (low frequency, large blobs).
+var _biome_noise: FastNoiseLite = null
+
+## Noise generator for resource placement (separate seed from biomes).
+var _resource_noise: FastNoiseLite = null
+
+## Noise generator for resource sub-type clustering.
+var _resource_type_noise: FastNoiseLite = null
+
 # -- Lifecycle -------------------------------------------------------------
 
 func _ready() -> void:
+	_setup_noise()
 	_generate_grid()
-	_render_grid()
+	# Connect to carrier for dynamic expansion.
+	var carrier := get_parent().get_node_or_null("Carrier") as Carrier
+	if carrier != null:
+		carrier.moved.connect(_on_carrier_moved)
+		# Pre-generate around the carrier's starting position so there's
+		# never a visible frontier right next to the player.
+		expand_around(carrier.current_hex.x, carrier.current_hex.y, expansion_radius)
 
 
 # -- Public API ------------------------------------------------------------
@@ -125,69 +156,154 @@ func world_to_axial(world_pos: Vector3) -> Vector2i:
 	return _axial_round(fq, fr)
 
 
+## Generate all cells within [param radius] hex distance of
+## ([param center_q], [param center_r]) that don't already exist.
+## Returns the number of new cells created.
+func expand_around(center_q: int, center_r: int, radius: int) -> int:
+	var new_count := 0
+	var new_resource_coords: Array[Vector2i] = []
+	for dq: int in range(-radius, radius + 1):
+		var r_min: int = maxi(-radius, -dq - radius)
+		var r_max: int = mini(radius, -dq + radius)
+		for dr: int in range(r_min, r_max + 1):
+			var q: int = center_q + dq
+			var r: int = center_r + dr
+			var coords := Vector2i(q, r)
+			if coords not in cells:
+				var cell := _generate_cell(q, r)
+				new_count += 1
+				if cell.terrain == HexCell.TerrainType.RESOURCE:
+					new_resource_coords.append(coords)
+	if new_count > 0:
+		grid_expanded.emit(new_count, new_resource_coords)
+	return new_count
+
+
+# -- Noise Setup (private) ------------------------------------------------
+
+## Create and configure [FastNoiseLite] instances for terrain generation.
+func _setup_noise() -> void:
+	var effective_seed: int = world_seed if world_seed != 0 else randi()
+
+	_biome_noise = FastNoiseLite.new()
+	_biome_noise.seed = effective_seed
+	_biome_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_biome_noise.frequency = 0.04
+	_biome_noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+	_biome_noise.fractal_octaves = 3
+
+	_resource_noise = FastNoiseLite.new()
+	_resource_noise.seed = effective_seed + 1337
+	_resource_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_resource_noise.frequency = 0.08
+
+	_resource_type_noise = FastNoiseLite.new()
+	_resource_type_noise.seed = effective_seed + 42
+	_resource_type_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_resource_type_noise.frequency = 0.06
+
+
 # -- Grid Generation (private) --------------------------------------------
 
+## Build the initial hex grid using [member grid_radius].
 func _generate_grid() -> void:
 	for q: int in range(-grid_radius, grid_radius + 1):
 		var r_min: int = maxi(-grid_radius, -q - grid_radius)
 		var r_max: int = mini(grid_radius, -q + grid_radius)
 		for r: int in range(r_min, r_max + 1):
-			var coords := Vector2i(q, r)
-			var terrain: HexCell.TerrainType
-			if coords in terrain_overrides:
-				terrain = terrain_overrides[coords] as HexCell.TerrainType
-			elif use_random_terrain:
-				terrain = _pick_terrain()
-			else:
-				terrain = HexCell.TerrainType.MOUNTAIN
-			var cell := HexCell.new(q, r, terrain)
-			if terrain == HexCell.TerrainType.RESOURCE:
-				if coords in resource_overrides:
-					var res_data: Dictionary = resource_overrides[coords]
-					cell.resource_type = res_data.get("type", &"metal")
-					cell.resource_amount = res_data.get("amount", 100.0)
-				elif use_random_terrain:
-					cell.resource_amount = randf_range(50.0, 150.0)
-					cell.resource_type = _pick_resource_type()
-			cells[coords] = cell
+			_generate_cell(q, r)
 
 
-func _pick_terrain() -> HexCell.TerrainType:
-	var roll := randf()
-	# ~15% resource, ~15% flora, ~10% desert, ~5% irradiated, ~55% mountain
-	if roll < 0.15:
+## Create a single cell: pick terrain, assign resources, render mesh.
+## Skips silently if the cell already exists at these coords.
+func _generate_cell(q: int, r: int) -> HexCell:
+	var coords := Vector2i(q, r)
+	if coords in cells:
+		return cells[coords]
+
+	var terrain := _pick_terrain_at(q, r)
+	var cell := HexCell.new(q, r, terrain)
+
+	if terrain == HexCell.TerrainType.RESOURCE:
+		if coords in resource_overrides:
+			var res_data: Dictionary = resource_overrides[coords]
+			cell.resource_type = res_data.get("type", &"metal")
+			cell.resource_amount = res_data.get("amount", 100.0)
+		elif use_random_terrain:
+			cell.resource_type = _pick_resource_type_at(q, r)
+			cell.resource_amount = _pick_resource_amount()
+
+	cells[coords] = cell
+
+	# Render immediately — each cell owns its own MeshInstance3D.
+	var mesh_instance := _create_hex_mesh(cell)
+	mesh_instance.position = axial_to_world(q, r)
+	add_child(mesh_instance)
+	return cell
+
+
+## Noise-based terrain selection.  Samples [FastNoiseLite] at the hex's
+## world position so nearby hexes get similar terrain → contiguous biomes.
+func _pick_terrain_at(q: int, r: int) -> HexCell.TerrainType:
+	var coords := Vector2i(q, r)
+
+	# Explicit overrides always win.
+	if coords in terrain_overrides:
+		return terrain_overrides[coords] as HexCell.TerrainType
+
+	# Non-random mode: all MOUNTAIN (used by test level).
+	if not use_random_terrain:
+		return HexCell.TerrainType.MOUNTAIN
+
+	# Sample noise at world position for spatial coherence.
+	var world_pos := axial_to_world(q, r)
+	var noise_val := _biome_noise.get_noise_2d(world_pos.x, world_pos.z)
+
+	# Resource layer — independent noise so resource clusters don't
+	# perfectly align with biome boundaries.
+	var resource_val := _resource_noise.get_noise_2d(world_pos.x, world_pos.z)
+	if resource_val > 0.45:  # ~20% of hexes
 		return HexCell.TerrainType.RESOURCE
-	elif roll < 0.30:
+
+	# Map biome noise [-1, 1] to terrain in contiguous bands.
+	# Tuned to roughly approximate the old percentage distribution
+	# but now with spatial coherence:
+	#   FLORA ~12%  |  DESERT ~12%  |  IRRADIATED ~6%  |  MOUNTAIN ~40%  |  RESOURCE ~30%
+	if noise_val < -0.35:
 		return HexCell.TerrainType.FLORA
-	elif roll < 0.40:
+	elif noise_val < -0.05:
 		return HexCell.TerrainType.DESERT
-	elif roll < 0.45:
+	elif noise_val < 0.10:
 		return HexCell.TerrainType.IRRADIATED
 	return HexCell.TerrainType.MOUNTAIN
 
 
-## Pick a weighted-random resource subtype for RESOURCE hexes.
-##
-## Distribution: ~50% metal, ~30% crystal, ~20% fuel.
-func _pick_resource_type() -> StringName:
-	var roll := randf()
-	if roll < 0.5:
+## Pick a resource sub-type using noise for mild spatial clustering.
+## Metal-rich zones, crystal veins, fuel deposits — not purely random.
+func _pick_resource_type_at(q: int, r: int) -> StringName:
+	var world_pos := axial_to_world(q, r)
+	var val := _resource_type_noise.get_noise_2d(world_pos.x, world_pos.z)
+	# [-1, 1] → metal / crystal / fuel bands (~50 / 30 / 20 split).
+	if val < -0.1:
 		return &"metal"
-	elif roll < 0.8:
+	elif val < 0.4:
 		return &"crystal"
 	return &"fuel"
 
 
+## Pick resource amount — slight random variation.
+func _pick_resource_amount() -> float:
+	return randf_range(50.0, 150.0)
+
+
+# -- Dynamic Expansion (private) ------------------------------------------
+
+## Expand the grid around the carrier's new position after each move.
+func _on_carrier_moved(_from: Vector2i, to: Vector2i) -> void:
+	expand_around(to.x, to.y, expansion_radius)
+
+
 # -- Rendering (private) --------------------------------------------------
-
-func _render_grid() -> void:
-	for coords: Vector2i in cells:
-		var cell: HexCell = cells[coords]
-		var world_pos := axial_to_world(cell.q, cell.r)
-		var mesh_instance := _create_hex_mesh(cell)
-		mesh_instance.position = world_pos
-		add_child(mesh_instance)
-
 
 func _create_hex_mesh(cell: HexCell) -> MeshInstance3D:
 	var mesh_instance := MeshInstance3D.new()

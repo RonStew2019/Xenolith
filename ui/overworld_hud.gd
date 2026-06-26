@@ -62,10 +62,17 @@ const RES_COLORS: Dictionary = {
 	&"fuel":    Color(1.0, 0.6, 0.2),
 }
 
+# ── Pause Indicator ──────────────────────────────────────────────────────
+
+const PAUSE_BG := Color(0.05, 0.05, 0.08, 0.9)
+const PAUSE_COLOR := Color(1.0, 0.85, 0.3)
+const PAUSE_FONT_SIZE := 22
+
 # ── Sibling References (auto-discovered) ─────────────────────────────────
 
 var _hex_grid: HexGrid = null
 var _carrier: Carrier = null
+var _pause_controller: PauseController = null
 
 # ── Hex Info Panel Refs ──────────────────────────────────────────────────
 
@@ -102,6 +109,9 @@ var _hovered_hex: Vector2i = Vector2i(-999, -999)
 ## Root control filling the viewport — all panels are children of this.
 var _root: Control
 
+## "⏸ PAUSED" indicator wrapper — toggled via [PauseController].
+var _pause_indicator: PanelContainer
+
 
 # ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -110,11 +120,17 @@ func _ready() -> void:
 	if get_parent() != null:
 		_hex_grid = get_parent().get_node_or_null("HexGrid") as HexGrid
 		_carrier = get_parent().get_node_or_null("Carrier") as Carrier
+		_pause_controller = get_parent().get_node_or_null(
+			"PauseController"
+		) as PauseController
 
 	_build_ui()
 
 	if _carrier != null:
 		_bind_carrier(_carrier)
+
+	if _pause_controller != null:
+		_pause_controller.pause_toggled.connect(_on_pause_toggled)
 
 
 func _process(_delta: float) -> void:
@@ -131,6 +147,7 @@ func _build_ui() -> void:
 
 	_build_hex_info_panel()
 	_build_carrier_panel()
+	_build_pause_indicator()
 
 
 # ── Hex Info Panel — Construction ────────────────────────────────────────
@@ -314,6 +331,45 @@ func _clear_hex_info() -> void:
 	_hex_occupant_label.visible = false
 	_hex_threat_label.visible = false
 	_hex_coords_label.visible = false
+
+
+# ── Pause Indicator — Construction ───────────────────────────────────────
+
+func _build_pause_indicator() -> void:
+	_pause_indicator = PanelContainer.new()
+	_pause_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pause_indicator.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_pause_indicator.add_theme_stylebox_override("panel", _make_pause_style())
+	_pause_indicator.visible = false
+	_root.add_child(_pause_indicator)
+
+	var lbl := Label.new()
+	lbl.text = "\u23F8  PAUSED"
+	lbl.add_theme_color_override("font_color", PAUSE_COLOR)
+	lbl.add_theme_font_size_override("font_size", PAUSE_FONT_SIZE)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_pause_indicator.add_child(lbl)
+
+
+func _make_pause_style() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = PAUSE_BG
+	_apply_corner_radius(s, CORNER_RADIUS)
+	s.content_margin_left = 24.0
+	s.content_margin_right = 24.0
+	s.content_margin_top = 8.0
+	s.content_margin_bottom = 8.0
+	s.border_width_left = 1
+	s.border_width_top = 1
+	s.border_width_right = 1
+	s.border_width_bottom = 1
+	s.border_color = PAUSE_COLOR * Color(1, 1, 1, 0.4)
+	return s
+
+
+func _on_pause_toggled(is_paused: bool) -> void:
+	if _pause_indicator != null:
+		_pause_indicator.visible = is_paused
 
 
 # ── Carrier Status Panel — Construction ──────────────────────────────────

@@ -2,14 +2,14 @@ extends Node
 class_name ProgressionManager
 ## Drives the early → mid → late game progression curve.
 ##
-## Tracks player milestones (threats defeated, mechs built, turns elapsed)
-## and reconfigures [ThreatManager] when the player crosses a phase
+## Tracks player milestones (threats defeated, mechs built) and
+## reconfigures [ThreatManager] when the player crosses a phase
 ## threshold.  Auto-discovers siblings in [method _ready].
 ##
-## Phase transitions are checked whenever a tracked metric changes.  Each
-## phase adjusts threat density, enemy carrier spawn chance, and fauna
-## difficulty — keeping the experience matched to what the player can
-## handle.
+## Phase transitions are milestone-only — no time-based fallbacks.
+## Each phase adjusts threat density, enemy carrier spawn chance, and
+## fauna difficulty — keeping the experience matched to what the player
+## can handle.
 ##
 ## Place this node BEFORE [ThreatManager] in the scene tree so its
 ## [method _ready] can configure initial-hive and spawn parameters before
@@ -43,9 +43,6 @@ var enemy_carriers_defeated: int = 0
 ## Total mechs the player has fabricated.
 var mechs_built: int = 0
 
-## Turn counter — mirrors [ThreatManager]'s turn count.
-var turns_elapsed: int = 0
-
 # -- Phase Transition Thresholds -------------------------------------------
 
 ## EARLY → MID: threats defeated required.
@@ -54,17 +51,11 @@ const EARLY_TO_MID_THREATS: int = 2
 ## EARLY → MID: mechs built required.
 const EARLY_TO_MID_MECHS: int = 1
 
-## EARLY → MID: fallback turn count.
-const EARLY_TO_MID_TURNS: int = 15
-
 ## MID → LATE: total threats defeated required.
 const MID_TO_LATE_THREATS: int = 5
 
 ## MID → LATE: enemy carriers defeated required.
 const MID_TO_LATE_CARRIERS: int = 1
-
-## MID → LATE: fallback turn count.
-const MID_TO_LATE_TURNS: int = 40
 
 # -- Phase Names (for logging) ---------------------------------------------
 
@@ -116,9 +107,6 @@ func _ready() -> void:
 	# (ThreatManager defers hive spawn to after the first process frame).
 	_apply_phase_config(Phase.EARLY)
 
-	# Listen to threat turns for the elapsed-turn fallback.
-	_threat_manager.turn_processed.connect(_on_turn_processed)
-
 	# Listen to engagement outcomes for kill tracking.
 	if _engagement_manager != null:
 		_engagement_manager.engagement_resolved.connect(
@@ -154,12 +142,6 @@ func get_phase_name() -> String:
 
 # -- Signal Handlers -------------------------------------------------------
 
-## Track threat turns and check for time-based phase transitions.
-func _on_turn_processed(turn_number: int) -> void:
-	turns_elapsed = turn_number
-	_check_phase_transition()
-
-
 ## Track engagement victories and the type of threat defeated.
 func _on_engagement_resolved(result: Dictionary) -> void:
 	var victory: bool = result.get("victory", false)
@@ -188,9 +170,8 @@ func _on_mech_built(_blueprint: MechBlueprint) -> void:
 
 ## Evaluate whether the player has met the criteria for the next phase.
 ##
-## Transitions are one-way: EARLY → MID → LATE.  Each phase has a
-## milestone-based trigger AND a turn-based fallback so the player is
-## never stuck forever.
+## Transitions are one-way: EARLY → MID → LATE.  Milestone-only — no
+## time-based fallbacks.  The player must earn each phase.
 func _check_phase_transition() -> void:
 	if test_mode:
 		return  # Locked — no phase transitions in test mode.
@@ -198,19 +179,13 @@ func _check_phase_transition() -> void:
 
 	match _current_phase:
 		Phase.EARLY:
-			var milestones_met: bool = (
-				threats_defeated >= EARLY_TO_MID_THREATS
-				and mechs_built >= EARLY_TO_MID_MECHS
-			)
-			if milestones_met or turns_elapsed >= EARLY_TO_MID_TURNS:
+			if (threats_defeated >= EARLY_TO_MID_THREATS
+					and mechs_built >= EARLY_TO_MID_MECHS):
 				new_phase = Phase.MID
 
 		Phase.MID:
-			var milestones_met: bool = (
-				threats_defeated >= MID_TO_LATE_THREATS
-				and enemy_carriers_defeated >= MID_TO_LATE_CARRIERS
-			)
-			if milestones_met or turns_elapsed >= MID_TO_LATE_TURNS:
+			if (threats_defeated >= MID_TO_LATE_THREATS
+					and enemy_carriers_defeated >= MID_TO_LATE_CARRIERS):
 				new_phase = Phase.LATE
 
 		Phase.LATE:

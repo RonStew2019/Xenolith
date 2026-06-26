@@ -88,6 +88,11 @@ var _notif_tween: Tween
 
 # Widget 3 — Reserve deployment panel
 var _reserve_panel: PanelContainer
+
+# Widget 4 — Self-destruct panel (shown when all mechs are lost)
+var _scuttle_root: Control
+var _scuttle_panel: PanelContainer
+var _scuttle_btn: Button
 var _reserve_root: Control  # Wrapper for mouse filter toggling
 var _reserve_list: VBoxContainer
 var _reserve_fuel_label: Label
@@ -100,6 +105,7 @@ func _ready() -> void:
 	layer = 10  # Match DeploymentUI
 	_build_ui()
 	_set_reserve_visible(false)
+	_set_scuttle_visible(false)
 
 
 # -- Public API ------------------------------------------------------------
@@ -132,6 +138,10 @@ func setup(engagement_mgr: EngagementManager, arena: CombatArena, carrier: Carri
 	engagement_mgr.engagement_won.connect(_on_engagement_won)
 	engagement_mgr.engagement_lost.connect(_on_engagement_lost)
 	engagement_mgr.reserve_deployed.connect(_on_reserve_deployed)
+
+	# Widget 4 — self-destruct / spectator panel
+	engagement_mgr.all_mechs_lost.connect(_on_all_mechs_lost)
+	engagement_mgr.engagement_draw.connect(_on_engagement_draw)
 
 	# Widget 3 — initial populate
 	_rebuild_reserve_list()
@@ -185,19 +195,45 @@ func _on_pilot_switched(new_pilot: MechBody, blueprint: MechBlueprint) -> void:
 
 func _on_engagement_won() -> void:
 	_show_notification("VICTORY", SUCCESS_COLOR, 28, "", Color.WHITE, NOTIF_LINGER + 1.0)
-	# Close reserve panel on combat end
+	# Close panels on combat end
 	if _reserve_open:
 		_toggle_reserve_panel()
+	_set_scuttle_visible(false)
 
 
 func _on_engagement_lost() -> void:
 	_show_notification("DEFEAT", DANGER_COLOR, 28, "", Color.WHITE, NOTIF_LINGER + 1.0)
 	if _reserve_open:
 		_toggle_reserve_panel()
+	_set_scuttle_visible(false)
+
+
+func _on_engagement_draw() -> void:
+	_show_notification(
+		"DRAW", WARNING_COLOR, 28,
+		"All fighters destroyed", DIM_COLOR,
+		NOTIF_LINGER + 1.0,
+	)
+	# Hide scuttle panel if visible — draw supersedes spectator mode.
+	_set_scuttle_visible(false)
+	if _reserve_open:
+		_toggle_reserve_panel()
 
 
 func _on_reserve_deployed(mech: MechBody, blueprint: MechBlueprint) -> void:
 	_rebuild_reserve_list()
+
+
+func _on_all_mechs_lost() -> void:
+	_show_notification(
+		"ALL MECHS DESTROYED", DANGER_COLOR, 28,
+		"Watch the battle or scuttle your carrier", WARNING_COLOR,
+		NOTIF_LINGER + 1.5,
+	)
+	_set_scuttle_visible(true)
+	# Close reserve panel — no reserves matter anymore
+	if _reserve_open:
+		_toggle_reserve_panel()
 
 
 # -- Widget 2: Notification Animation --------------------------------------
@@ -353,6 +389,7 @@ func _build_ui() -> void:
 	_build_enemy_display()
 	_build_notification_overlay()
 	_build_reserve_panel()
+	_build_scuttle_panel()
 
 
 # -- Widget 1: Enemy Reactor Display Build ---------------------------------
@@ -481,6 +518,64 @@ func _build_reserve_panel() -> void:
 
 	_reserve_empty_label = _make_label("No reserves available.", DIM_COLOR, FONT_NORMAL)
 	_reserve_list.add_child(_reserve_empty_label)
+
+
+# -- Widget 4: Self-Destruct / Scuttle Panel Build -------------------------
+
+func _build_scuttle_panel() -> void:
+	_scuttle_root = Control.new()
+	_scuttle_root.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_scuttle_root.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_scuttle_root.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_scuttle_root.offset_top = -160.0
+	_scuttle_root.offset_bottom = -60.0
+	_scuttle_root.offset_left = -140.0
+	_scuttle_root.offset_right = 140.0
+	_scuttle_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_scuttle_root)
+
+	_scuttle_panel = PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.04, 0.04, 0.92)
+	_apply_corner_radius(style, CORNER_RADIUS)
+	_apply_border(style, 2, DANGER_COLOR.darkened(0.3))
+	style.content_margin_left = 16.0
+	style.content_margin_right = 16.0
+	style.content_margin_top = 12.0
+	style.content_margin_bottom = 12.0
+	_scuttle_panel.add_theme_stylebox_override("panel", style)
+	_scuttle_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_scuttle_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	_scuttle_root.add_child(_scuttle_panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	_scuttle_panel.add_child(vbox)
+
+	var subtitle := _make_label(
+		"All mechs lost — carrier under attack", DIM_COLOR, FONT_SMALL,
+	)
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(subtitle)
+
+	_scuttle_btn = _make_button("SCUTTLE CARRIER", DANGER_COLOR)
+	_scuttle_btn.custom_minimum_size = Vector2(200, 36)
+	_scuttle_btn.add_theme_font_size_override("font_size", FONT_HEADER)
+	_scuttle_btn.pressed.connect(_on_scuttle_pressed)
+	vbox.add_child(_scuttle_btn)
+
+
+func _set_scuttle_visible(vis: bool) -> void:
+	_scuttle_root.visible = vis
+	_scuttle_root.mouse_filter = Control.MOUSE_FILTER_STOP if vis else Control.MOUSE_FILTER_IGNORE
+
+
+func _on_scuttle_pressed() -> void:
+	if _engagement_manager == null:
+		return
+	_engagement_manager.self_destruct_carrier()
+	_set_scuttle_visible(false)
 
 
 # -- Bar Row Builder (shared by enemy display) -----------------------------

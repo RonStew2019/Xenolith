@@ -62,6 +62,18 @@ var fauna_swarm_strength_min: float = 1.0
 ## Maximum fauna [member FaunaHive.swarm_strength] when spawning.
 var fauna_swarm_strength_max: float = 1.5
 
+## Resource amount multiplier for hexes guarded by a fauna hive.
+## Creates risk/reward — the richest nodes are the dangerous ones.
+var hive_resource_multiplier: float = 4.0
+
+## Probability (0.0–1.0) of a newly generated resource node spawning
+## with a fauna hive guard.  Only checked during dynamic map expansion.
+var hive_spawn_chance: float = 0.3
+
+## Minimum hex distance from the carrier for expansion-spawned hives.
+## Prevents ambush-spawns right next to the player.
+const HIVE_SAFE_RADIUS: int = 2
+
 ## When [code]true[/code], disables random spawning and places hives only
 ## at the positions listed in [member test_hive_positions].
 var test_mode: bool = false
@@ -106,6 +118,9 @@ func _ready() -> void:
 
 	# React to carrier movement immediately (don't wait for next turn).
 	carrier.moved.connect(_on_carrier_moved)
+
+	# Spawn hives on newly explored resource nodes.
+	hex_grid.grid_expanded.connect(_on_grid_expanded)
 
 	# Wait one frame so the grid has generated its cells.
 	await get_tree().process_frame
@@ -185,24 +200,55 @@ func _on_carrier_moved(_from_hex: Vector2i, _to_hex: Vector2i) -> void:
 	_check_detection()
 
 
+## Probabilistically guard newly generated resource nodes with fauna hives.
+##
+## Called when the map expands ahead of the carrier.  Each new resource
+## node has a [member hive_spawn_chance] probability of getting a hive
+## (with the standard yield boost).  Nodes too close to the carrier
+## ([constant HIVE_SAFE_RADIUS]) are skipped to avoid cheap ambushes.
+func _on_grid_expanded(_new_cell_count: int, new_resource_coords: Array[Vector2i]) -> void:
+	if test_mode or new_resource_coords.is_empty():
+		return
+
+	var carrier_cell: HexCell = hex_grid.get_cell(carrier.current_hex.x, carrier.current_hex.y)
+
+	for coords: Vector2i in new_resource_coords:
+		if _threats.size() >= max_threats:
+			break
+		if randf() > hive_spawn_chance:
+			continue
+
+		# Don't spawn right next to the player.
+		if carrier_cell != null:
+			var cell: HexCell = hex_grid.get_cell(coords.x, coords.y)
+			if cell != null and carrier_cell.distance_to(cell) <= HIVE_SAFE_RADIUS:
+				continue
+
+		spawn_fauna_hive(coords.x, coords.y)
+
+
 # -- Spawning --------------------------------------------------------------
 
-## Place initial fauna hives on random non-edge, non-resource,
-## non-carrier hexes.
+## Place initial fauna hives on random unguarded resource hexes.
+## The guarded nodes get a boosted yield — risk meets reward.
 func _spawn_initial_hives() -> void:
 	if test_mode:
 		for pos: Vector2i in test_hive_positions:
 			spawn_fauna_hive(pos.x, pos.y)
 		return
-	var interior: Array[Vector2i] = _get_interior_hexes()
+	var resource_hexes: Array[Vector2i] = _get_unguarded_resource_hexes()
 	for i: int in range(initial_hive_count):
-		var hex: Vector2i = _get_random_empty_hex(interior)
+		var hex: Vector2i = _get_random_empty_hex(resource_hexes)
 		if hex == Vector2i(-999, -999):
-			break  # No more valid hexes.
+			print("[ThreatManager] No unguarded resource hexes left for initial hive %d" % i)
+			break
 		spawn_fauna_hive(hex.x, hex.y)
 
 
 ## Create and place a [FaunaHive] at the given hex.
+##
+## If the hex is a RESOURCE cell, boosts its [member HexCell.resource_amount]
+## by [member hive_resource_multiplier] — guarded nodes are the juicy ones.
 func spawn_fauna_hive(q: int, r: int) -> FaunaHive:
 	var hive := FaunaHive.new()
 	hive.entity_name = &"Fauna Hive"
@@ -215,6 +261,14 @@ func spawn_fauna_hive(q: int, r: int) -> FaunaHive:
 	hive.removed.connect(_on_threat_removed.bind(hive))
 	_threats.append(hive)
 	threat_spawned.emit(hive)
+
+	# Boost resource yield on guarded resource nodes.
+	var cell := hex_grid.get_cell(q, r)
+	if cell != null and cell.terrain == HexCell.TerrainType.RESOURCE:
+		var old_amount := cell.resource_amount
+		cell.resource_amount *= hive_resource_multiplier
+		print("[ThreatManager] Boosted resource at (%d, %d): %.0f → %.0f" % [q, r, old_amount, cell.resource_amount])
+
 	print("[ThreatManager] Spawned fauna hive at (%d, %d)" % [q, r])
 	return hive
 
@@ -238,20 +292,22 @@ func spawn_enemy_carrier(q: int, r: int, strength_val: float) -> EnemyCarrier:
 	return enemy
 
 
-## Spawn a random threat — fauna hive or enemy carrier depending on
-## how many turns have elapsed.
+## Periodically spawn an enemy carrier on a frontier hex.
+##
+## Fauna hives are placed at map generation only — guarding high-yield
+## resource nodes.  Unguarded nodes stay safe.
+## [member enemy_carrier_chance] gates this: early phase (0.0) means no
+## periodic threats at all; mid/late phases ramp it up.
 func _spawn_random_threat() -> void:
+	if enemy_carrier_chance <= 0.0:
+		return
 	var edge_hexes: Array[Vector2i] = _get_edge_hexes()
 	var hex: Vector2i = _get_random_empty_hex(edge_hexes)
 	if hex == Vector2i(-999, -999):
-		print("[ThreatManager] No empty edge hexes for spawning")
+		print("[ThreatManager] No empty edge hexes for enemy carrier")
 		return
-
-	if randf() < enemy_carrier_chance:
-		var strength_val: float = randf_range(carrier_strength_min, carrier_strength_max)
-		spawn_enemy_carrier(hex.x, hex.y, strength_val)
-	else:
-		spawn_fauna_hive(hex.x, hex.y)
+	var strength_val: float = randf_range(carrier_strength_min, carrier_strength_max)
+	spawn_enemy_carrier(hex.x, hex.y, strength_val)
 
 
 # -- Public API ------------------------------------------------------------
@@ -292,35 +348,34 @@ func get_nearby_threats(hex: Vector2i, range_val: int) -> Array[ThreatEntity]:
 
 # -- Hex Helpers (private) -------------------------------------------------
 
-## Return hexes on the outermost ring of the grid (distance == grid_radius).
+## Return hexes on the frontier of the currently-generated map.
+##
+## A cell is on the frontier if it has fewer than 6 neighbours in
+## [member HexGrid.cells].  Works for both fixed-radius and dynamically
+## expanding grids.
 func _get_edge_hexes() -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
-	var radius: int = hex_grid.grid_radius
 	for coords: Vector2i in hex_grid.cells:
-		var cell: HexCell = hex_grid.cells[coords]
-		# A cell is on the edge if max(|q|, |r|, |s|) == radius.
-		var s: int = -cell.q - cell.r
-		if maxi(absi(cell.q), maxi(absi(cell.r), absi(s))) == radius:
+		var neighbor_count: int = 0
+		for dir: Vector2i in HexGrid.HEX_DIRECTIONS:
+			if Vector2i(coords.x + dir.x, coords.y + dir.y) in hex_grid.cells:
+				neighbor_count += 1
+		if neighbor_count < 6:
 			result.append(coords)
 	return result
 
 
-## Return interior hexes (not on edge, not on the carrier's starting hex).
-func _get_interior_hexes() -> Array[Vector2i]:
+## Return all RESOURCE hexes with no occupant, excluding the carrier's
+## current hex.  Used for fauna hive placement — both initial and periodic.
+func _get_unguarded_resource_hexes() -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
-	var radius: int = hex_grid.grid_radius
+	var carrier_hex: Vector2i = carrier.current_hex if carrier != null else Vector2i(-999, -999)
 	for coords: Vector2i in hex_grid.cells:
+		if coords == carrier_hex:
+			continue
 		var cell: HexCell = hex_grid.cells[coords]
-		var s: int = -cell.q - cell.r
-		var ring: int = maxi(absi(cell.q), maxi(absi(cell.r), absi(s)))
-		# Skip edge, skip origin (carrier start), skip resource hexes.
-		if ring >= radius:
-			continue
-		if coords == Vector2i.ZERO:
-			continue
-		if cell.terrain == HexCell.TerrainType.RESOURCE:
-			continue
-		result.append(coords)
+		if cell.terrain == HexCell.TerrainType.RESOURCE and cell.occupant == null:
+			result.append(coords)
 	return result
 
 

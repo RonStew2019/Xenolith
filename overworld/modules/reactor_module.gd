@@ -10,6 +10,9 @@ class_name ReactorModule
 ## How much power this reactor generates.
 @export var power_output: int = 5
 
+## How many additional module slots this reactor grants when installed.
+@export var slot_bonus: int = 4
+
 # -- Overrides -------------------------------------------------------------
 
 func _init() -> void:
@@ -18,3 +21,11 @@ func _init() -> void:
 
 func get_module_type() -> StringName:
 	return &"reactor"
+
+
+func on_install(carrier) -> void:
+	carrier.max_slots += slot_bonus
+
+
+func on_uninstall(carrier) -> void:
+	carrier.max_slots -= slot_bonus

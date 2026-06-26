@@ -42,12 +42,9 @@ class_name OverworldCamera
 @export var follow_smoothing: float = 5.0
 
 # -- Bounds Configuration -------------------------------------------------
-
-## Minimum camera target position (X, Z).
-@export var bounds_min: Vector2 = Vector2(-25.0, -25.0)
-
-## Maximum camera target position (X, Z).
-@export var bounds_max: Vector2 = Vector2(25.0, 25.0)
+# Bounds removed — the map expands dynamically, so fixed clamping would
+# trap the camera inside the initial grid.  The camera is free to follow
+# the carrier anywhere.
 
 # -- Constants -------------------------------------------------------------
 
@@ -119,10 +116,6 @@ func _process(delta: float) -> void:
 		var follow_weight: float = minf(follow_smoothing * delta, 1.0)
 		target_position = target_position.lerp(goal, follow_weight)
 
-	# -- Clamp to bounds --
-	target_position.x = clampf(target_position.x, bounds_min.x, bounds_max.x)
-	target_position.z = clampf(target_position.z, bounds_min.y, bounds_max.y)
-
 	_apply_transform()
 
 
@@ -161,6 +154,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		var key := event as InputEventKey
 		if key.keycode == KEY_HOME or key.keycode == KEY_F:
 			_recenter_on_target()
+			get_viewport().set_input_as_handled()
+		elif key.keycode == KEY_Y:
+			if _is_following:
+				_is_following = false
+				print("[OverworldCamera] Free camera")
+			else:
+				_recenter_on_target()
 			get_viewport().set_input_as_handled()
 
 

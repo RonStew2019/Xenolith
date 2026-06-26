@@ -47,7 +47,7 @@ signal module_uninstalled(module: CarrierModule, slot_index: int)
 @export var harvest_rate: float = 0.0
 
 ## Maximum number of module slots on the carrier.
-@export var max_slots: int = 6
+@export var max_slots: int = 4
 
 ## Starting metal — enough for one dogfighter build by default.
 @export var starting_metal: int = 50
@@ -65,6 +65,9 @@ var harvest_rate_multiplier: float = 1.0
 
 ## Current axial position on the hex grid.
 var current_hex: Vector2i = Vector2i.ZERO
+
+## Previous hex position — used for shunting back on a draw.
+var previous_hex: Vector2i = Vector2i.ZERO
 
 ## Reference to the parent hex grid.  Set via [method initialize] or
 ## auto-discovered in [method _ready].
@@ -181,6 +184,7 @@ func move_to_hex(target_q: int, target_r: int) -> void:
 	if is_moving:
 		return
 
+	previous_hex = current_hex
 	var from := current_hex
 	_stop_harvesting()
 	_unpark()
@@ -441,6 +445,17 @@ func _setup_build_queue() -> void:
 	add_child(_build_queue)
 
 
+## Teleport back to [member previous_hex].  Used after a draw to vacate
+## the contested hex so the threat entity keeps its position.
+func shunt_back() -> void:
+	if hex_grid == null:
+		return
+	_stop_harvesting()
+	_unpark()
+	_snap_to_hex(previous_hex.x, previous_hex.y)
+	_park(previous_hex.x, previous_hex.y)
+
+
 # -- Movement Helpers (private) --------------------------------------------
 
 ## Teleport to a hex without tweening.  Used for initial placement.
@@ -475,6 +490,7 @@ func _install_default_modules() -> void:
 	default_reactor.module_name = &"Standard Reactor"
 	default_reactor.description = "The carrier's stock reactor. Keeps the lights on."
 	default_reactor.power_output = 5
+	default_reactor.slot_bonus = 2  # Starter is weaker than purchased reactors
 	install_module(default_reactor)
 
 	var default_harvester := HarvesterModule.new()

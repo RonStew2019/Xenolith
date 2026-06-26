@@ -13,7 +13,7 @@ const BOMBER_DEPLOY_FUEL: int = 8
 # Each returns a Dictionary of {&"metal": N, &"crystal": N}.
 
 static func reactor_module_cost() -> Dictionary:
-	return {&"metal": 40, &"crystal": 20}
+	return {&"metal": 1000, &"crystal": 500}
 
 static func fabricator_module_cost() -> Dictionary:
 	return {&"metal": 25, &"crystal": 15}

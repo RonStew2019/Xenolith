@@ -23,11 +23,11 @@ func _init(
 
 func on_apply(reactor: Node) -> void:
 	_character = reactor.get_parent()
-	if is_instance_valid(_character):
+	if is_instance_valid(_character) and "speed_multiplier" in _character:
 		_character.speed_multiplier += SPEED_BONUS
 
 
 func on_remove(_reactor: Node) -> void:
-	if is_instance_valid(_character):
+	if is_instance_valid(_character) and "speed_multiplier" in _character:
 		_character.speed_multiplier -= SPEED_BONUS
 	_character = null
