@@ -27,6 +27,9 @@ static func harvester_module_cost() -> Dictionary:
 static func defense_module_cost() -> Dictionary:
 	return {&"metal": 30, &"crystal": 20}
 
+static func engine_module_cost() -> Dictionary:
+	return {&"metal": 20, &"crystal": 10}
+
 # -- Weapon Costs (added on top of chassis cost) ---------------------------
 # Returns a Dictionary of {resource_type: amount} for the given weapon_id.
 

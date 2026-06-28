@@ -32,6 +32,7 @@ const TYPE_COLORS: Dictionary = {
 	&"hangar": Color(0.3, 0.7, 1.0),
 	&"harvester": Color(0.3, 0.85, 0.4),
 	&"defense": Color(0.7, 0.3, 0.9),
+	&"engine": Color(0.1, 0.85, 0.85),
 }
 const FALLBACK_TYPE_COLOR := Color(0.5, 0.5, 0.55)
 
@@ -222,6 +223,8 @@ func _get_module_detail(module: CarrierModule) -> String:
 		return "Harvest bonus: +%.1f/s" % (module as HarvesterModule).harvest_rate_bonus
 	if module is DefenseModule:
 		return "Defense: +%.1f" % (module as DefenseModule).defense_strength
+	if module is EngineModule:
+		return "Move cooldown: -5.0s"
 	return module.description if module.description != "" else String(module.get_module_type())
 
 
@@ -263,6 +266,11 @@ func _build_install_buttons() -> void:
 			"factory": _make_defense,
 			"costs": EconomyConfig.defense_module_cost(),
 		},
+		{
+			"label": "Engine  (-5s cooldown)  —  %s" % _format_cost(EconomyConfig.engine_module_cost()),
+			"factory": _make_engine,
+			"costs": EconomyConfig.engine_module_cost(),
+		},
 	]
 
 	for tmpl: Dictionary in templates:
@@ -284,6 +292,7 @@ func _update_install_button_states() -> void:
 		EconomyConfig.hangar_module_cost(),
 		EconomyConfig.harvester_module_cost(),
 		EconomyConfig.defense_module_cost(),
+		EconomyConfig.engine_module_cost(),
 	]
 
 	var btn_index: int = 0
@@ -340,6 +349,13 @@ func _make_defense() -> CarrierModule:
 	m.description = "Passive defense system."
 	m.defense_strength = 10.0
 	m.resource_costs = EconomyConfig.defense_module_cost()
+	return m
+
+func _make_engine() -> CarrierModule:
+	var m := EngineModule.new()
+	m.module_name = &"Engine"
+	m.description = "Propulsion module — reduces movement cooldown."
+	m.resource_costs = EconomyConfig.engine_module_cost()
 	return m
 
 # ── Signal Handlers ──────────────────────────────────────────────────────
