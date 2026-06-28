@@ -42,6 +42,12 @@ var defense_strength: float = 15.0
 ## [code]{"chassis": &"dogfighter"|&"bomber", "weapon_preset": &"basic"|&"status_effect"}[/code]
 var mech_complement: Array[Dictionary] = []
 
+## Virtual total module count for movement speed calculation.
+var total_modules: int = 3
+
+## Virtual engine module count for movement speed calculation.
+var engine_modules: int = 0
+
 # -- Static Factories ------------------------------------------------------
 
 ## Fast, fragile scout — one light mech, low defense.
@@ -58,6 +64,8 @@ static func scout() -> EnemyCarrierArchetype:
 	a.mech_complement = [
 		{"chassis": &"dogfighter", "weapon_preset": &"basic"},
 	]
+	a.total_modules = 3
+	a.engine_modules = 2
 	return a
 
 
@@ -77,6 +85,8 @@ static func standard() -> EnemyCarrierArchetype:
 		{"chassis": &"dogfighter", "weapon_preset": &"basic"},
 		{"chassis": &"bomber", "weapon_preset": &"basic"},
 	]
+	a.total_modules = 5
+	a.engine_modules = 1
 	return a
 
 
@@ -98,6 +108,8 @@ static func fortress() -> EnemyCarrierArchetype:
 		{"chassis": &"bomber", "weapon_preset": &"status_effect"},
 		{"chassis": &"bomber", "weapon_preset": &"status_effect"},
 	]
+	a.total_modules = 8
+	a.engine_modules = 1
 	return a
 
 

@@ -6,10 +6,15 @@ class_name EnemyCarrier
 ## lumber toward you giving time to prepare, while weak fast scouts
 ## punish turtling — rewarding guerrilla play.
 ##
-## Strength → speed mapping (linear interpolation):
-##   strength 1.0  → move_interval = 2 (fastest)
-##   strength 5.0  → move_interval = 5 (moderate)
-##   strength 10.0 → move_interval = 8 (slowest)
+## Speed is derived from the archetype's virtual module counts using the
+## same formula as the player carrier:
+##   cooldown_seconds = max(1.0, 3.0 * total_modules - 5.0 * engine_modules)
+##   move_interval    = ceil(cooldown_seconds / 5.0)   (turns)
+##
+## Resulting intervals:
+##   Scout    → 1 turn  (fast!)
+##   Standard → 2 turns (moderate)
+##   Fortress → 4 turns (very slow)
 
 # -- Properties ------------------------------------------------------------
 
@@ -33,12 +38,6 @@ var _target_carrier: Carrier = null
 
 ## Angry red — the enemy is clearly hostile.
 const ENEMY_COLOR: Color = Color(0.8, 0.2, 0.15)
-
-## Weakest carriers move every 2 turns (fastest).
-const MIN_MOVE_INTERVAL: int = 2
-
-## Strongest carriers move every 8 turns (slowest).
-const MAX_MOVE_INTERVAL: int = 8
 
 # -- Overrides -------------------------------------------------------------
 
@@ -73,17 +72,20 @@ func _create_visual() -> void:
 
 # -- Public API ------------------------------------------------------------
 
-## Set combat strength and compute [member move_interval] from it.
+## Set combat strength and compute [member move_interval] from archetype modules.
 ##
-## Uses linear interpolation between [constant MIN_MOVE_INTERVAL] and
-## [constant MAX_MOVE_INTERVAL] based on strength 1.0–10.0.
+## Uses the same formula as the player carrier, converted to turns:
+##   cooldown_seconds = max(1.0, 3.0 * total_modules - 5.0 * engine_modules)
+##   move_interval    = ceil(cooldown_seconds / 5.0)
 func set_strength(value: float) -> void:
 	strength = value
 	archetype = EnemyCarrierArchetype.for_strength(value)
-	var t: float = clampf((strength - 1.0) / 9.0, 0.0, 1.0)
-	move_interval = roundi(lerpf(float(MIN_MOVE_INTERVAL), float(MAX_MOVE_INTERVAL), t))
-	print("[EnemyCarrier] Strength %.1f → %s, move every %d turns" % [
-		strength, archetype.archetype_name, move_interval,
+	# Use the same formula as the player carrier, converted to turns.
+	# Turn interval is ~5 seconds, so divide by 5 and round up.
+	var cooldown_seconds: float = maxf(1.0, 3.0 * archetype.total_modules - 5.0 * archetype.engine_modules)
+	move_interval = maxi(1, ceili(cooldown_seconds / 5.0))
+	print("[EnemyCarrier] Strength %.1f → %s, cooldown %.1fs → move every %d turns" % [
+		strength, archetype.archetype_name, cooldown_seconds, move_interval,
 	])
 
 

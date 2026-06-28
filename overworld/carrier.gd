@@ -82,6 +82,9 @@ var _is_harvesting: bool = false
 ## The hex cell currently being harvested, or null.
 var _harvest_cell: HexCell = null
 
+## Seconds remaining before the carrier can move again.
+var _move_cooldown: float = 0.0
+
 ## Float accumulator — only whole units are deposited into [Inventory].
 var _harvest_accumulator: float = 0.0
 
@@ -125,6 +128,9 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if _move_cooldown > 0.0:
+		_move_cooldown -= delta
+
 	if not _is_harvesting or _harvest_cell == null:
 		return
 
@@ -169,6 +175,14 @@ func get_build_queue() -> BuildQueue:
 	return _build_queue
 
 
+## Compute the current movement cooldown in seconds based on installed modules.
+## Formula: max(1.0, 3.0 * total_modules - 5.0 * engine_count)
+func get_move_interval() -> float:
+	var total: int = get_module_count()
+	var engines: int = get_modules_by_type(&"engine").size()
+	return maxf(1.0, 3.0 * total - 5.0 * engines)
+
+
 ## Set up the carrier on a specific grid at a starting hex.
 func initialize(grid: HexGrid, start_q: int = 0, start_r: int = 0) -> void:
 	hex_grid = grid
@@ -202,6 +216,7 @@ func move_to_hex(target_q: int, target_r: int) -> void:
 	is_moving = false
 	_park(target_q, target_r)
 	moved.emit(from, current_hex)
+	_move_cooldown = get_move_interval()
 
 
 ## Return all hexes reachable this turn (within [member move_range] and
@@ -338,7 +353,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var mb := event as InputEventMouseButton
 	if mb.button_index != MOUSE_BUTTON_LEFT or not mb.pressed:
 		return
-	if is_moving or hex_grid == null:
+	if is_moving or _move_cooldown > 0.0 or hex_grid == null:
 		return
 
 	var target := _get_hex_under_mouse(mb)
