@@ -8,13 +8,13 @@ class_name EnemyCarrier
 ##
 ## Speed is derived from the archetype's virtual module counts using the
 ## same formula as the player carrier:
-##   cooldown_seconds = max(1.0, 3.0 * total_modules - 5.0 * engine_modules)
+##   cooldown_seconds = max(1.0, 2.0 * total_modules - 5.0 * engine_modules)
 ##   move_interval    = ceil(cooldown_seconds / 5.0)   (turns)
 ##
 ## Resulting intervals:
 ##   Scout    → 1 turn  (fast!)
-##   Standard → 2 turns (moderate)
-##   Fortress → 4 turns (very slow)
+##   Standard → 1 turn  (nimble)
+##   Fortress → 3 turns (slow)
 
 # -- Properties ------------------------------------------------------------
 
@@ -75,14 +75,14 @@ func _create_visual() -> void:
 ## Set combat strength and compute [member move_interval] from archetype modules.
 ##
 ## Uses the same formula as the player carrier, converted to turns:
-##   cooldown_seconds = max(1.0, 3.0 * total_modules - 5.0 * engine_modules)
+##   cooldown_seconds = max(1.0, 2.0 * total_modules - 5.0 * engine_modules)
 ##   move_interval    = ceil(cooldown_seconds / 5.0)
 func set_strength(value: float) -> void:
 	strength = value
 	archetype = EnemyCarrierArchetype.for_strength(value)
 	# Use the same formula as the player carrier, converted to turns.
 	# Turn interval is ~5 seconds, so divide by 5 and round up.
-	var cooldown_seconds: float = maxf(1.0, 3.0 * archetype.total_modules - 5.0 * archetype.engine_modules)
+	var cooldown_seconds: float = maxf(1.0, 2.0 * archetype.total_modules - 5.0 * archetype.engine_modules)
 	move_interval = maxi(1, ceili(cooldown_seconds / 5.0))
 	print("[EnemyCarrier] Strength %.1f → %s, cooldown %.1fs → move every %d turns" % [
 		strength, archetype.archetype_name, cooldown_seconds, move_interval,

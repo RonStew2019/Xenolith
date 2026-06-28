@@ -198,11 +198,11 @@ func get_move_cooldown_remaining() -> float:
 
 
 ## Compute the current movement cooldown in seconds based on installed modules.
-## Formula: max(1.0, 3.0 * total_modules - 5.0 * engine_count)
+## Formula: max(1.0, 2.0 * total_modules - 5.0 * engine_count)
 func get_move_interval() -> float:
 	var total: int = get_module_count()
 	var engines: int = get_modules_by_type(&"engine").size()
-	return maxf(1.0, 3.0 * total - 5.0 * engines)
+	return maxf(1.0, 2.0 * total - 5.0 * engines)
 
 
 ## Set up the carrier on a specific grid at a starting hex.

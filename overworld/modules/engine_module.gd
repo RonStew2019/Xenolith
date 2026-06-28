@@ -6,7 +6,7 @@ class_name EngineModule
 ## computes its movement cooldown dynamically from the full module list
 ## every time it moves.  More engines = faster carrier.
 ##
-## Formula: max(1.0, 3.0 * total_modules - 5.0 * engine_count)
+## Formula: max(1.0, 2.0 * total_modules - 5.0 * engine_count)
 
 # -- Overrides -------------------------------------------------------------
 
