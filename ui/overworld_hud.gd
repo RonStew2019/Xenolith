@@ -25,6 +25,10 @@ const BAR_BG := Color(0.12, 0.12, 0.18)
 const HULL_FULL := Color(0.1, 0.9, 0.4)
 const HULL_LOW := Color(0.9, 0.15, 0.15)
 
+const HARVEST_COLOR := Color(0.2, 0.8, 0.4)   # Green — resource extraction
+const COOLDOWN_COLOR := Color(0.3, 0.6, 1.0)   # Blue — movement ready
+const COOLDOWN_EMPTY := Color(0.5, 0.3, 0.15)  # Dim orange — on cooldown
+
 # ── Layout Constants ─────────────────────────────────────────────────────
 
 const CORNER_RADIUS := 6
@@ -32,7 +36,7 @@ const PANEL_MARGIN := 16.0
 const HEX_PANEL_WIDTH := 260.0
 const HEX_PANEL_HEIGHT := 210.0
 const CARRIER_PANEL_WIDTH := 250.0
-const CARRIER_PANEL_HEIGHT := 310.0
+const CARRIER_PANEL_HEIGHT := 380.0
 const SWATCH_SIZE := Vector2(14, 14)
 const SWATCH_RADIUS := 2
 
@@ -99,6 +103,14 @@ var _slots_label: Label
 var _power_label: Label
 var _harvest_label: Label
 var _harvest_tween: Tween
+var _harvest_bar: ProgressBar
+var _harvest_bar_label: Label
+var _harvest_bar_container: HBoxContainer
+
+var _cooldown_bar: ProgressBar
+var _cooldown_bar_label: Label
+var _cooldown_bar_container: HBoxContainer
+
 var _position_label: Label
 
 # ── State ────────────────────────────────────────────────────────────────
@@ -135,6 +147,8 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	_update_hex_info_from_mouse()
+	_update_harvest_bar()
+	_update_cooldown_bar()
 
 
 # ── UI Root ──────────────────────────────────────────────────────────────
@@ -440,6 +454,21 @@ func _build_carrier_panel() -> void:
 	_harvest_label.visible = false
 	vbox.add_child(_harvest_label)
 
+	# Harvest progress bar (hidden until harvesting begins)
+	var harvest_row := _build_bar_row("HARVEST", HARVEST_COLOR)
+	_harvest_bar_container = harvest_row.container
+	_harvest_bar = harvest_row.bar
+	_harvest_bar_label = harvest_row.value_label
+	_harvest_bar_container.visible = false
+	vbox.add_child(_harvest_bar_container)
+
+	# Movement cooldown bar
+	var cooldown_row := _build_bar_row("MOVE", COOLDOWN_COLOR)
+	_cooldown_bar_container = cooldown_row.container
+	_cooldown_bar = cooldown_row.bar
+	_cooldown_bar_label = cooldown_row.value_label
+	vbox.add_child(_cooldown_bar_container)
+
 	# Current hex position (dim)
 	_position_label = _make_label("Hex: (0, 0)", DIM_COLOR, 10)
 	vbox.add_child(_position_label)
@@ -625,11 +654,13 @@ func _on_harvesting_started(resource_type: StringName) -> void:
 	var res_name := String(resource_type).to_pascal_case()
 	_harvest_label.text = ">> Harvesting %s..." % res_name
 	_harvest_label.visible = true
+	_harvest_bar_container.visible = true
 	_start_harvest_pulse()
 
 
 func _on_harvesting_stopped() -> void:
 	_harvest_label.visible = false
+	_harvest_bar_container.visible = false
 	_stop_harvest_pulse()
 
 
@@ -644,6 +675,40 @@ func _stop_harvest_pulse() -> void:
 	if _harvest_tween and _harvest_tween.is_valid():
 		_harvest_tween.kill()
 	_harvest_label.modulate.a = 1.0
+
+
+# ── Polled Bar Updates ───────────────────────────────────────────────────
+
+## Update the harvest progress bar from carrier state.
+func _update_harvest_bar() -> void:
+	if _carrier == null:
+		return
+	var remaining := _carrier.get_harvest_remaining()
+	var max_amount := _carrier.get_harvest_max()
+	if max_amount <= 0.0:
+		_harvest_bar_container.visible = false
+		return
+	_harvest_bar_container.visible = true
+	_harvest_bar.max_value = max_amount
+	_harvest_bar.value = remaining
+	_harvest_bar_label.text = "%d / %d" % [ceili(remaining), ceili(max_amount)]
+
+
+## Update the movement cooldown bar from carrier state.
+func _update_cooldown_bar() -> void:
+	if _carrier == null:
+		return
+	var remaining := _carrier.get_move_cooldown_remaining()
+	var interval := _carrier.get_move_interval()
+	_cooldown_bar.max_value = interval
+	# Bar fills UP as cooldown elapses (full = ready to move)
+	_cooldown_bar.value = interval - remaining
+	if remaining <= 0.0:
+		_cooldown_bar_label.text = "READY"
+		_cooldown_bar_label.add_theme_color_override("font_color", COOLDOWN_COLOR)
+	else:
+		_cooldown_bar_label.text = "%.1fs" % remaining
+		_cooldown_bar_label.add_theme_color_override("font_color", COOLDOWN_EMPTY)
 
 
 # ── Style Factories ──────────────────────────────────────────────────────

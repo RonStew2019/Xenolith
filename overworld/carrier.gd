@@ -82,6 +82,9 @@ var _is_harvesting: bool = false
 ## The hex cell currently being harvested, or null.
 var _harvest_cell: HexCell = null
 
+## Resource amount when harvesting began — used for progress calculation.
+var _harvest_start_amount: float = 0.0
+
 ## Seconds remaining before the carrier can move again.
 var _move_cooldown: float = 0.0
 
@@ -173,6 +176,25 @@ func get_hangar() -> Hangar:
 ## Return the carrier's [BuildQueue] node.
 func get_build_queue() -> BuildQueue:
 	return _build_queue
+
+
+## Return the amount of resource remaining on the current harvest node, or 0.0.
+func get_harvest_remaining() -> float:
+	if _is_harvesting and _harvest_cell != null:
+		return _harvest_cell.resource_amount
+	return 0.0
+
+
+## Return the starting resource amount of the current harvest node, or 0.0.
+func get_harvest_max() -> float:
+	if _is_harvesting:
+		return _harvest_start_amount
+	return 0.0
+
+
+## Return the seconds remaining before the carrier can move again.
+func get_move_cooldown_remaining() -> float:
+	return maxf(0.0, _move_cooldown)
 
 
 ## Compute the current movement cooldown in seconds based on installed modules.
@@ -410,6 +432,7 @@ func _is_parked() -> bool:
 ## Begin harvesting the given [HexCell].
 func _start_harvesting(cell: HexCell) -> void:
 	_harvest_cell = cell
+	_harvest_start_amount = cell.resource_amount
 	_harvest_accumulator = 0.0
 	_is_harvesting = true
 	print("[Carrier] Harvesting %s... (%.1f remaining)" % [cell.resource_type, cell.resource_amount])

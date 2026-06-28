@@ -3,7 +3,6 @@
   "name": "godot-xenolith-overworld-agent",
   "display_name": "Godot Xenolith Overworld Agent ",
   "description": "Specialized Godot 4.x agent for the Xenolith overworld carrier systems — carrier movement, module management, hex grid navigation, enemy carrier AI, threat management, resource harvesting, build queues, and strategic-layer game logic.",
-  "model": "claude-sonnet-4-20250514",
   "tools": [
     "list_files",
     "read_file",
