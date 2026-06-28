@@ -31,6 +31,10 @@ signal combat_ended()
 ## Resource type used for deployment costs.
 const FUEL_RESOURCE: StringName = &"fuel"
 
+## Overworld node names to pause (PROCESS_MODE_DISABLED) during combat.
+## Camera3D, PauseController, DeploymentManager, and EngagementManager stay active.
+const _PAUSE_ON_COMBAT := [&"Carrier", &"HexGrid", &"ProgressionManager", &"ThreatIndicatorManager"]
+
 # -- State -----------------------------------------------------------------
 
 ## The threat currently being engaged (null when idle).
@@ -229,8 +233,15 @@ func launch() -> void:
 	var parent_node: Node = get_parent()
 	if parent_node != null:
 		for child: Node in parent_node.get_children():
-			if child is Node3D and child != _arena:
+			if child is Node3D:
 				(child as Node3D).visible = false
+			elif child is CanvasLayer:
+				(child as CanvasLayer).visible = false
+		# Pause overworld processing nodes that shouldn't run during combat.
+		for node_name: StringName in _PAUSE_ON_COMBAT:
+			var n: Node = parent_node.get_node_or_null(NodePath(node_name))
+			if n != null:
+				n.process_mode = Node.PROCESS_MODE_DISABLED
 		parent_node.add_child(_arena)
 
 	var terrain_name: String = HexCell.TerrainType.keys()[terrain_type]
@@ -259,12 +270,26 @@ func retreat() -> void:
 func end_combat() -> void:
 	if _arena == null:
 		return
-	# Show all overworld siblings again.
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var parent_node: Node = get_parent()
 	if parent_node != null:
+		# Unpause overworld processing nodes.
+		for node_name: StringName in _PAUSE_ON_COMBAT:
+			var n: Node = parent_node.get_node_or_null(NodePath(node_name))
+			if n != null:
+				n.process_mode = Node.PROCESS_MODE_INHERIT
+		# Show all overworld siblings again.
 		for child: Node in parent_node.get_children():
-			if child is Node3D and child != _arena:
+			if child == _arena:
+				continue
+			if child is Node3D:
 				(child as Node3D).visible = true
+			elif child is CanvasLayer:
+				(child as CanvasLayer).visible = true
+		# Recenter the overworld camera on the carrier.
+		var cam: Node = parent_node.get_node_or_null("Camera3D")
+		if cam != null and cam.has_method("recenter"):
+			cam.recenter()
 	_arena.queue_free()
 	_arena = null
 	print("[DeploymentManager] Combat ended — returning to overworld")
