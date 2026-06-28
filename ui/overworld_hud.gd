@@ -72,6 +72,10 @@ const PAUSE_BG := Color(0.05, 0.05, 0.08, 0.9)
 const PAUSE_COLOR := Color(1.0, 0.85, 0.3)
 const PAUSE_FONT_SIZE := 22
 
+# ── Auto-Move Indicator ──────────────────────────────────────────────────
+
+const AUTOMOVE_COLOR := Color(0.3, 0.85, 1.0)
+
 # ── Sibling References (auto-discovered) ─────────────────────────────────
 
 var _hex_grid: HexGrid = null
@@ -124,6 +128,9 @@ var _root: Control
 ## "⏸ PAUSED" indicator wrapper — toggled via [PauseController].
 var _pause_indicator: PanelContainer
 
+## "Right-click to cancel route" indicator — visible during auto-move.
+var _automove_indicator: PanelContainer
+
 
 # ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -162,6 +169,7 @@ func _build_ui() -> void:
 	_build_hex_info_panel()
 	_build_carrier_panel()
 	_build_pause_indicator()
+	_build_automove_indicator()
 
 
 # ── Hex Info Panel — Construction ────────────────────────────────────────
@@ -386,6 +394,40 @@ func _on_pause_toggled(is_paused: bool) -> void:
 		_pause_indicator.visible = is_paused
 
 
+# ── Auto-Move Indicator — Construction ───────────────────────────────────
+
+func _build_automove_indicator() -> void:
+	_automove_indicator = PanelContainer.new()
+	_automove_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_automove_indicator.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_automove_indicator.add_theme_stylebox_override("panel", _make_automove_style())
+	_automove_indicator.visible = false
+	_root.add_child(_automove_indicator)
+
+	var lbl := Label.new()
+	lbl.text = "Right-click to cancel route"
+	lbl.add_theme_color_override("font_color", AUTOMOVE_COLOR)
+	lbl.add_theme_font_size_override("font_size", 14)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_automove_indicator.add_child(lbl)
+
+
+func _make_automove_style() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = PAUSE_BG
+	_apply_corner_radius(s, CORNER_RADIUS)
+	s.content_margin_left = 24.0
+	s.content_margin_right = 24.0
+	s.content_margin_top = 8.0
+	s.content_margin_bottom = 8.0
+	s.border_width_left = 1
+	s.border_width_top = 1
+	s.border_width_right = 1
+	s.border_width_bottom = 1
+	s.border_color = AUTOMOVE_COLOR * Color(1, 1, 1, 0.4)
+	return s
+
+
 # ── Carrier Status Panel — Construction ──────────────────────────────────
 
 func _build_carrier_panel() -> void:
@@ -555,6 +597,8 @@ func _bind_carrier(carrier: Carrier) -> void:
 	carrier.harvesting_stopped.connect(_on_harvesting_stopped)
 	carrier.module_installed.connect(_on_module_changed)
 	carrier.module_uninstalled.connect(_on_module_changed)
+	carrier.auto_move_started.connect(_on_auto_move_started)
+	carrier.auto_move_ended.connect(_on_auto_move_ended)
 
 	var inventory := carrier.get_inventory()
 	if inventory != null:
@@ -648,6 +692,16 @@ func _on_hangar_changed(_blueprint: Variant) -> void:
 func _on_module_changed(_module: Variant, _slot: int) -> void:
 	_refresh_modules()
 	_refresh_hangar()  # Capacity may have changed if a HangarModule was added/removed.
+
+
+func _on_auto_move_started(_path: Array[Vector2i]) -> void:
+	if _automove_indicator != null:
+		_automove_indicator.visible = true
+
+
+func _on_auto_move_ended() -> void:
+	if _automove_indicator != null:
+		_automove_indicator.visible = false
 
 
 func _on_harvesting_started(resource_type: StringName) -> void:

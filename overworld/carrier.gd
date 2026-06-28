@@ -31,6 +31,12 @@ signal module_installed(module: CarrierModule, slot_index: int)
 ## Emitted when a module is removed from a slot.
 signal module_uninstalled(module: CarrierModule, slot_index: int)
 
+## Emitted when a multi-hex auto-move route begins.
+signal auto_move_started(path: Array[Vector2i])
+
+## Emitted when auto-move completes (reached destination) or is cancelled.
+signal auto_move_ended()
+
 # -- Exported Stats --------------------------------------------------------
 
 ## Maximum hex distance the carrier can move per action.
@@ -94,6 +100,12 @@ var _harvest_accumulator: float = 0.0
 ## Reference to the carrier's child [Inventory] node.
 var _inventory: Inventory = null
 
+## Queued path of hex coords for auto-move. Empty = no auto-move in progress.
+var _move_queue: Array[Vector2i] = []
+
+## Whether the carrier is currently executing an auto-move path.
+var _auto_moving: bool = false
+
 ## Installed carrier modules.  Each element is a [CarrierModule] or null.
 var _modules: Array[CarrierModule] = []
 
@@ -133,6 +145,20 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _move_cooldown > 0.0:
 		_move_cooldown -= delta
+
+	# Auto-move: advance to next queued hex when cooldown expires
+	if _auto_moving and not is_moving and _move_cooldown <= 0.0 and not _move_queue.is_empty():
+		var next_hex: Vector2i = _move_queue[0]
+		var next_cell := hex_grid.get_cell(next_hex.x, next_hex.y) if hex_grid else null
+		# Abort if the next cell is blocked (something moved into it)
+		if next_cell == null or (next_cell.occupant != null and next_cell.occupant != self and not next_cell.occupant is ThreatEntity):
+			cancel_auto_move()
+		else:
+			_move_queue.remove_at(0)
+			move_to_hex(next_hex.x, next_hex.y)
+			if _move_queue.is_empty():
+				_auto_moving = false
+				auto_move_ended.emit()
 
 	if not _is_harvesting or _harvest_cell == null:
 		return
@@ -261,6 +287,38 @@ func get_reachable_hexes() -> Array[HexCell]:
 	return reachable
 
 
+## Start auto-moving along a path of hex coordinates.
+## The path should NOT include the current hex.
+func start_auto_move(path: Array[Vector2i]) -> void:
+	if path.is_empty():
+		return
+	_move_queue = path.duplicate()
+	_auto_moving = true
+	auto_move_started.emit(path)
+	# Immediately start the first move if ready
+	if not is_moving and _move_cooldown <= 0.0:
+		var next_hex: Vector2i = _move_queue.pop_front()
+		move_to_hex(next_hex.x, next_hex.y)
+		if _move_queue.is_empty():
+			_auto_moving = false
+			auto_move_ended.emit()
+
+
+## Cancel any in-progress auto-move. The carrier stops at its current hex.
+func cancel_auto_move() -> void:
+	if not _auto_moving:
+		return
+	_move_queue.clear()
+	_auto_moving = false
+	auto_move_ended.emit()
+	print("[Carrier] Auto-move cancelled")
+
+
+## Return whether the carrier is currently in auto-move mode.
+func is_auto_moving() -> bool:
+	return _auto_moving
+
+
 # -- Module API ------------------------------------------------------------
 
 ## Install a module in the next free slot.
@@ -373,9 +431,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton:
 		return
 	var mb := event as InputEventMouseButton
-	if mb.button_index != MOUSE_BUTTON_LEFT or not mb.pressed:
+	if hex_grid == null:
 		return
-	if is_moving or _move_cooldown > 0.0 or hex_grid == null:
+
+	# Right-click cancels auto-move
+	if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
+		if _auto_moving:
+			cancel_auto_move()
+		return
+
+	if mb.button_index != MOUSE_BUTTON_LEFT or not mb.pressed:
 		return
 
 	var target := _get_hex_under_mouse(mb)
@@ -384,17 +449,25 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	var cell := hex_grid.get_cell(target.x, target.y)
 	if cell == null:
-		return  # Clicked outside the grid.
-	if cell.occupant != null and not cell.occupant is ThreatEntity:
-		return  # Hex occupied by non-threat entity.
+		return
 
-	# Range check — use HexCell.distance_to() for correctness.
+	# Ctrl+click: plot multi-hex route
+	if mb.ctrl_pressed:
+		var path: Array[Vector2i] = hex_grid.find_path(current_hex, target)
+		if not path.is_empty():
+			start_auto_move(path)
+		return
+
+	# Normal click: single adjacent move (existing behavior)
+	if _auto_moving or is_moving or _move_cooldown > 0.0:
+		return
+	if cell.occupant != null and not cell.occupant is ThreatEntity:
+		return
 	var origin_cell := hex_grid.get_cell(current_hex.x, current_hex.y)
 	if origin_cell == null:
 		return
 	if origin_cell.distance_to(cell) > move_range:
 		return
-
 	move_to_hex(target.x, target.y)
 
 

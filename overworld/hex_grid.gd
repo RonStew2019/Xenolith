@@ -128,6 +128,45 @@ func get_neighbors(q: int, r: int) -> Array[HexCell]:
 	return result
 
 
+## Find the shortest path from one hex to another using BFS.
+## Returns an array of axial coordinates (Vector2i) from start to end,
+## EXCLUDING the start hex but INCLUDING the end hex.
+## Avoids hexes occupied by non-ThreatEntity occupants.
+## Returns an empty array if no path exists.
+func find_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+	if from == to:
+		return [] as Array[Vector2i]
+
+	var frontier: Array[Vector2i] = [from]
+	var came_from: Dictionary = {from: from}  # sentinel: start points to itself
+
+	while not frontier.is_empty():
+		var current: Vector2i = frontier.pop_front()
+		if current == to:
+			break
+		for neighbor_cell: HexCell in get_neighbors(current.x, current.y):
+			var neighbor: Vector2i = neighbor_cell.axial_coords()
+			if neighbor in came_from:
+				continue
+			# Allow walking through threats (we'll engage them) but not other occupants
+			if neighbor_cell.occupant != null and not neighbor_cell.occupant is ThreatEntity and neighbor != to:
+				continue
+			came_from[neighbor] = current
+			frontier.append(neighbor)
+
+	# Reconstruct path
+	if to not in came_from:
+		return [] as Array[Vector2i]  # No path found
+
+	var path: Array[Vector2i] = []
+	var step: Vector2i = to
+	while step != from:
+		path.append(step)
+		step = came_from[step]
+	path.reverse()
+	return path
+
+
 ## Return every [HexCell] within [param dist] hex steps of (q, r).
 func get_cells_in_range(q: int, r: int, dist: int) -> Array[HexCell]:
 	var result: Array[HexCell] = []
