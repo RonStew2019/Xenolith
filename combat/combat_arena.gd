@@ -40,8 +40,15 @@ const CARRIER_BOX_SIZE := Vector3(4.0, 3.0, 4.0)
 ## Enemy visual scale multiplier vs. their overworld mesh.
 const ENEMY_SCALE: float = 3.0
 
-## Number of spawn point markers near the player carrier.
-const SPAWN_POINT_COUNT: int = 4
+## Default number of spawn-point markers (used during initial arena build;
+## [method build_spawn_points_for] replaces them with the actual team size).
+const DEFAULT_SPAWN_COUNT: int = 4
+
+## Maximum mechs per spawn row before adding another row behind.
+const MAX_PER_ROW: int = 6
+
+## Z-axis spacing between spawn rows (front-to-back).
+const SPAWN_ROW_SPACING: float = 8.0
 
 ## Spawn points spread (X) around the carrier.
 const SPAWN_SPREAD_X: float = 18.0
@@ -510,17 +517,41 @@ func _build_enemy_carrier_visual(
 # ==========================================================================
 
 func _build_spawn_points() -> void:
+	build_spawn_points_for(DEFAULT_SPAWN_COUNT)
+
+
+## Rebuild spawn-point markers for a specific team size.
+##
+## Arranges [param count] positions in rows of up to [constant MAX_PER_ROW],
+## spreading across X and stacking rows forward from the carrier.  Called
+## automatically during [method setup] with [constant DEFAULT_SPAWN_COUNT];
+## the [EngagementManager] calls this again with the actual deployed mech
+## count so every mech gets a unique spawn position.
+func build_spawn_points_for(count: int) -> void:
+	# Remove old marker nodes.
+	for child: Node in get_children():
+		if child is Marker3D and child.name.begins_with("SpawnPoint"):
+			child.queue_free()
 	_spawn_points.clear()
-	for i: int in range(SPAWN_POINT_COUNT):
-		var marker := Marker3D.new()
-		marker.name = "SpawnPoint%d" % i
-		# Spread evenly along X, slightly forward of the carrier (relative).
-		var t: float = float(i) / float(SPAWN_POINT_COUNT - 1) if SPAWN_POINT_COUNT > 1 else 0.5
-		var x: float = _player_carrier_pos.x + lerpf(-SPAWN_SPREAD_X, SPAWN_SPREAD_X, t)
-		var z: float = _player_carrier_pos.z - SPAWN_FORWARD_Z
-		marker.position = Vector3(x, 0.0, z)
-		add_child(marker)
-		_spawn_points.append(marker.position)
+
+	var total: int = maxi(count, 1)
+	var rows: int = ceili(float(total) / float(MAX_PER_ROW))
+	var placed: int = 0
+
+	for row: int in range(rows):
+		var row_count: int = mini(total - placed, MAX_PER_ROW)
+		var z: float = _player_carrier_pos.z - SPAWN_FORWARD_Z - float(row) * SPAWN_ROW_SPACING
+		for col: int in range(row_count):
+			var t: float = float(col) / float(row_count - 1) if row_count > 1 else 0.5
+			var x: float = _player_carrier_pos.x + lerpf(-SPAWN_SPREAD_X, SPAWN_SPREAD_X, t)
+			var marker := Marker3D.new()
+			marker.name = "SpawnPoint%d" % placed
+			marker.position = Vector3(x, 0.0, z)
+			add_child(marker)
+			_spawn_points.append(marker.position)
+			placed += 1
+
+	print("[CombatArena] Spawn points: %d across %d row(s)" % [placed, rows])
 
 
 # ==========================================================================

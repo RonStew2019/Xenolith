@@ -190,6 +190,9 @@ func begin_engagement(
 	_connect_lose_condition(carrier_t)
 
 	# -- Spawn deployed mechs ----------------------------------------------
+	# Rebuild spawn points for the actual team size so every mech gets a
+	# unique position (avoids physics collisions from overlapping bodies).
+	arena.build_spawn_points_for(deployed_mechs.size())
 	var spawn_points: Array[Vector3] = arena.get_spawn_points()
 
 	for bp: MechBlueprint in deployed_mechs:
