@@ -32,8 +32,8 @@ signal combat_ended()
 const FUEL_RESOURCE: StringName = &"fuel"
 
 ## Overworld node names to pause (PROCESS_MODE_DISABLED) during combat.
-## Camera3D, PauseController, DeploymentManager, and EngagementManager stay active.
-const _PAUSE_ON_COMBAT := [&"Carrier", &"HexGrid", &"ProgressionManager", &"ThreatIndicatorManager"]
+## Camera3D, DeploymentManager, and EngagementManager stay active.
+const _PAUSE_ON_COMBAT := [&"Carrier", &"HexGrid", &"ProgressionManager", &"ThreatIndicatorManager", &"PauseController", &"OverworldHUD"]
 
 # -- State -----------------------------------------------------------------
 
@@ -135,6 +135,29 @@ func set_pilot(hangar_index: int) -> void:
 	print("[DeploymentManager] Pilot set to hangar index %d" % hangar_index)
 
 
+## Select all mechs in the hangar for deployment.
+func select_all() -> void:
+	if not _is_deploying or carrier == null:
+		return
+	var hangar: Hangar = carrier.get_hangar()
+	_selected_indices.clear()
+	for i: int in range(hangar.get_mech_count()):
+		_selected_indices.append(i)
+	# Auto-set pilot to first mech if not already set.
+	if _pilot_index < 0 and not _selected_indices.is_empty():
+		_pilot_index = _selected_indices[0]
+	print("[DeploymentManager] Selected all %d mechs" % _selected_indices.size())
+
+
+## Deselect all mechs.
+func deselect_all() -> void:
+	if not _is_deploying:
+		return
+	_selected_indices.clear()
+	_pilot_index = -1
+	print("[DeploymentManager] Deselected all mechs")
+
+
 ## Return the currently selected hangar indices.
 func get_selected_indices() -> Array[int]:
 	return _selected_indices
@@ -229,6 +252,13 @@ func launch() -> void:
 	_arena = CombatArena.new()
 	_arena.setup(terrain_type, threat, carrier)
 
+	# If the game is paused (via PauseController), unpause before combat
+	# so we don't enter the arena frozen.
+	var tree := get_tree()
+	if tree != null and tree.paused:
+		tree.paused = false
+		print("[DeploymentManager] Unpaused tree before entering combat")
+
 	# Hide all overworld siblings so only the arena is visible.
 	var parent_node: Node = get_parent()
 	if parent_node != null:
@@ -278,6 +308,11 @@ func end_combat() -> void:
 			var n: Node = parent_node.get_node_or_null(NodePath(node_name))
 			if n != null:
 				n.process_mode = Node.PROCESS_MODE_INHERIT
+		# PauseController needs PROCESS_MODE_ALWAYS (not INHERIT) to
+		# receive input while the tree is paused.
+		var pause_ctrl: Node = parent_node.get_node_or_null("PauseController")
+		if pause_ctrl != null:
+			pause_ctrl.process_mode = Node.PROCESS_MODE_ALWAYS
 		# Show all overworld siblings again.
 		for child: Node in parent_node.get_children():
 			if child == _arena:

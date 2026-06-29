@@ -110,7 +110,7 @@ func _move_toward_carrier(target_hex: Vector2i) -> void:
 	var best_dist: int = 999
 
 	for cell: HexCell in neighbors:
-		if cell.occupant != null:
+		if cell.occupant != null and cell.occupant != _target_carrier:
 			continue
 		var dist: int = cell.distance_to(target_cell)
 		if dist < best_dist:

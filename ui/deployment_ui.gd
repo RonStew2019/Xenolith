@@ -81,6 +81,8 @@ var _empty_label: Label
 # Bottom bar
 var _cost_label: Label
 var _fuel_label: Label
+var _deploy_all_btn: Button
+var _clear_btn: Button
 var _launch_btn: Button
 var _retreat_btn: Button
 
@@ -299,7 +301,18 @@ func _build_bottom_bar(parent: VBoxContainer) -> void:
 	_fuel_label = _make_label("You have: -- fuel", DIM_COLOR, FONT_SMALL)
 	cost_vbox.add_child(_fuel_label)
 
-	# Buttons (right side)
+	# Bulk-selection buttons
+	_deploy_all_btn = _make_button("DEPLOY ALL", SUCCESS_COLOR)
+	_deploy_all_btn.custom_minimum_size = Vector2(110, 36)
+	_deploy_all_btn.pressed.connect(_on_deploy_all_pressed)
+	bottom.add_child(_deploy_all_btn)
+
+	_clear_btn = _make_button("CLEAR", DIM_COLOR)
+	_clear_btn.custom_minimum_size = Vector2(80, 36)
+	_clear_btn.pressed.connect(_on_clear_pressed)
+	bottom.add_child(_clear_btn)
+
+	# Action buttons (right side)
 	_retreat_btn = _make_button("RETREAT", DANGER_COLOR)
 	_retreat_btn.custom_minimum_size = Vector2(120, 36)
 	_retreat_btn.pressed.connect(_on_retreat_pressed)
@@ -499,6 +512,22 @@ func _on_pilot_pressed(index: int) -> void:
 	_deployment_manager.set_pilot(index)
 	_refresh()
 	print("[DeploymentUI] Set pilot to index %d" % index)
+
+
+func _on_deploy_all_pressed() -> void:
+	if _deployment_manager == null:
+		return
+	_deployment_manager.select_all()
+	_refresh()
+	print("[DeploymentUI] Deploy All — selected every mech")
+
+
+func _on_clear_pressed() -> void:
+	if _deployment_manager == null:
+		return
+	_deployment_manager.deselect_all()
+	_refresh()
+	print("[DeploymentUI] Clear — deselected all mechs")
 
 
 func _on_launch_pressed() -> void:
