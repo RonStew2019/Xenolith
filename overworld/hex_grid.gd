@@ -83,6 +83,33 @@ const HEX_MESH_SCALE: float = 0.95
 ## Height of the hex prism sides, giving slight 3D depth.
 const HEX_PRISM_HEIGHT: float = 0.15
 
+# -- Sympathy / Pity Balancing --------------------------------------------
+
+## Expected fraction of cells that become RESOURCE terrain.
+## Derived from the base noise threshold (resource_val > 0.45 ≈ 25%).
+const EXPECTED_RESOURCE_RATE: float = 0.25
+
+## Expected per-type share *within* RESOURCE cells, derived from noise band
+## widths:  metal [-1, -0.1] ≈ 45%,  crystal [-0.1, 0.4] ≈ 25%,
+## fuel [0.4, 1] ≈ 30%.
+const EXPECTED_TYPE_RATES: Dictionary = {
+	&"metal":   0.45,
+	&"crystal": 0.25,
+	&"fuel":    0.30,
+}
+
+## Maximum amount the resource noise threshold can drop when resources are
+## severely underrepresented.  Base is 0.45; at full deficit → 0.25.
+const SYMPATHY_RESOURCE_MAX_SHIFT: float = 0.20
+
+## Maximum probability of overriding the noise-picked resource sub-type to
+## the most underrepresented type.  Scales linearly with that type's deficit.
+const SYMPATHY_TYPE_STRENGTH: float = 0.60
+
+## Don't apply sympathy until at least this many cells have been generated.
+## Avoids wild swings from tiny sample sizes during the first ring.
+const SYMPATHY_MIN_CELLS: int = 10
+
 # -- State -----------------------------------------------------------------
 
 ## All cells keyed by [code]Vector2i(q, r)[/code].
@@ -96,6 +123,17 @@ var _resource_noise: FastNoiseLite = null
 
 ## Noise generator for resource sub-type clustering.
 var _resource_type_noise: FastNoiseLite = null
+
+# -- Sympathy tracking (private) -------------------------------------------
+
+## Running count of all cells generated so far.
+var _total_cells: int = 0
+
+## Running count of RESOURCE-terrain cells generated.
+var _resource_cells: int = 0
+
+## Per-resource-type counts for sympathy rate calculations.
+var _resource_type_counts: Dictionary = { &"metal": 0, &"crystal": 0, &"fuel": 0 }
 
 # -- Lifecycle -------------------------------------------------------------
 
@@ -274,6 +312,13 @@ func _generate_cell(q: int, r: int) -> HexCell:
 
 	cells[coords] = cell
 
+	# Sympathy tracking: update running counters for pity balancing.
+	_total_cells += 1
+	if terrain == HexCell.TerrainType.RESOURCE:
+		_resource_cells += 1
+		if cell.resource_type in _resource_type_counts:
+			_resource_type_counts[cell.resource_type] += 1
+
 	# Render immediately — each cell owns its own MeshInstance3D.
 	var mesh_instance := _create_hex_mesh(cell)
 	mesh_instance.position = axial_to_world(q, r)
@@ -301,7 +346,14 @@ func _pick_terrain_at(q: int, r: int) -> HexCell.TerrainType:
 	# Resource layer — independent noise so resource clusters don't
 	# perfectly align with biome boundaries.
 	var resource_val := _resource_noise.get_noise_2d(world_pos.x, world_pos.z)
-	if resource_val > 0.45:  # ~20% of hexes
+	var resource_threshold := 0.45
+	# Sympathy: lower threshold when RESOURCE cells are underrepresented.
+	if _total_cells >= SYMPATHY_MIN_CELLS:
+		var actual_rate := float(_resource_cells) / float(_total_cells)
+		if actual_rate < EXPECTED_RESOURCE_RATE:
+			var deficit := (EXPECTED_RESOURCE_RATE - actual_rate) / EXPECTED_RESOURCE_RATE
+			resource_threshold -= SYMPATHY_RESOURCE_MAX_SHIFT * deficit
+	if resource_val > resource_threshold:
 		return HexCell.TerrainType.RESOURCE
 
 	# Map biome noise [-1, 1] to terrain in contiguous bands.
@@ -319,15 +371,39 @@ func _pick_terrain_at(q: int, r: int) -> HexCell.TerrainType:
 
 ## Pick a resource sub-type using noise for mild spatial clustering.
 ## Metal-rich zones, crystal veins, fuel deposits — not purely random.
+## A sympathy layer nudges the result toward underrepresented types.
 func _pick_resource_type_at(q: int, r: int) -> StringName:
 	var world_pos := axial_to_world(q, r)
 	var val := _resource_type_noise.get_noise_2d(world_pos.x, world_pos.z)
-	# [-1, 1] → metal / crystal / fuel bands (~50 / 30 / 20 split).
+	# [-1, 1] → metal / crystal / fuel bands (~45 / 25 / 30 split).
+	var base_type: StringName
 	if val < -0.1:
-		return &"metal"
+		base_type = &"metal"
 	elif val < 0.4:
-		return &"crystal"
-	return &"fuel"
+		base_type = &"crystal"
+	else:
+		base_type = &"fuel"
+
+	# Sympathy: if any type is significantly underrepresented, there's a
+	# chance (proportional to the deficit) to override to that type.
+	if _resource_cells < SYMPATHY_MIN_CELLS:
+		return base_type
+
+	var worst_type: StringName = &""
+	var worst_deficit: float = 0.0
+	for res_type: StringName in HexCell.RESOURCE_TYPES:
+		var actual_rate := float(_resource_type_counts.get(res_type, 0)) / float(_resource_cells)
+		var expected_rate: float = EXPECTED_TYPE_RATES.get(res_type, 0.33)
+		var deficit := (expected_rate - actual_rate) / expected_rate
+		if deficit > worst_deficit:
+			worst_deficit = deficit
+			worst_type = res_type
+
+	if worst_type != &"" and worst_deficit > 0.0:
+		if randf() < worst_deficit * SYMPATHY_TYPE_STRENGTH:
+			return worst_type
+
+	return base_type
 
 
 ## Pick resource amount — slight random variation.
