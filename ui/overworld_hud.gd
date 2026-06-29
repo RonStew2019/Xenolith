@@ -76,6 +76,14 @@ const PAUSE_FONT_SIZE := 22
 
 const AUTOMOVE_COLOR := Color(0.3, 0.85, 1.0)
 
+# ── Fabrication Strip ────────────────────────────────────────────────────
+
+const FAB_ICON_SIZE := Vector2(36, 36)
+const FAB_ICON_SPACING := 4
+const FAB_ACTIVE_BORDER := Color(0.3, 0.7, 1.0, 0.8)
+const FAB_QUEUED_BORDER := Color(0.25, 0.3, 0.45, 0.4)
+const FAB_FILL_COLOR := Color(0.2, 0.5, 1.0, 0.45)
+
 # ── Sibling References (auto-discovered) ─────────────────────────────────
 
 var _hex_grid: HexGrid = null
@@ -131,6 +139,12 @@ var _pause_indicator: PanelContainer
 ## "Right-click to cancel route" indicator — visible during auto-move.
 var _automove_indicator: PanelContainer
 
+## Fabrication job strip — visible while BuildQueue has pending builds.
+var _fab_strip: PanelContainer
+var _fab_hbox: HBoxContainer
+var _fab_slots: Array[Dictionary] = []  # Each: {root: Control, fill: ColorRect, label: Label}
+var _build_queue: BuildQueue = null
+
 
 # ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -170,6 +184,7 @@ func _build_ui() -> void:
 	_build_carrier_panel()
 	_build_pause_indicator()
 	_build_automove_indicator()
+	_build_fabrication_strip()
 
 
 # ── Hex Info Panel — Construction ────────────────────────────────────────
@@ -392,6 +407,8 @@ func _make_pause_style() -> StyleBoxFlat:
 func _on_pause_toggled(is_paused: bool) -> void:
 	if _pause_indicator != null:
 		_pause_indicator.visible = is_paused
+	if _fab_strip != null:
+		_fab_strip.offset_top = 48.0 if is_paused else 8.0
 
 
 # ── Auto-Move Indicator — Construction ───────────────────────────────────
@@ -426,6 +443,119 @@ func _make_automove_style() -> StyleBoxFlat:
 	s.border_width_bottom = 1
 	s.border_color = AUTOMOVE_COLOR * Color(1, 1, 1, 0.4)
 	return s
+
+
+# ── Fabrication Strip — Construction ────────────────────────────────────
+
+func _build_fabrication_strip() -> void:
+	_fab_strip = PanelContainer.new()
+	_fab_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fab_strip.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_fab_strip.offset_top = 8.0
+	_fab_strip.add_theme_stylebox_override("panel", _make_fab_strip_style())
+	_fab_strip.visible = false
+	_root.add_child(_fab_strip)
+
+	_fab_hbox = HBoxContainer.new()
+	_fab_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fab_hbox.add_theme_constant_override("separation", FAB_ICON_SPACING)
+	_fab_strip.add_child(_fab_hbox)
+
+
+func _make_fab_strip_style() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = PANEL_BG
+	_apply_corner_radius(s, CORNER_RADIUS)
+	s.content_margin_left = 8.0
+	s.content_margin_right = 8.0
+	s.content_margin_top = 6.0
+	s.content_margin_bottom = 6.0
+	s.border_width_left = 1
+	s.border_width_top = 1
+	s.border_width_right = 1
+	s.border_width_bottom = 1
+	s.border_color = BORDER_COLOR
+	return s
+
+
+## Create a single fabrication slot icon.
+## Returns {root: Control, fill: ColorRect, label: Label}.
+func _make_fab_slot(chassis_label: String, is_active: bool, ratio: float) -> Dictionary:
+	var slot := Control.new()
+	slot.custom_minimum_size = FAB_ICON_SIZE
+	slot.mouse_filter = Control.MOUSE_FILTER_PASS
+	slot.tooltip_text = chassis_label
+	slot.clip_contents = true
+
+	# Background with border
+	var bg := PanelContainer.new()
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = BAR_BG
+	_apply_corner_radius(style, 4)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = FAB_ACTIVE_BORDER if is_active else FAB_QUEUED_BORDER
+	bg.add_theme_stylebox_override("panel", style)
+	slot.add_child(bg)
+
+	# Progress fill (bottom-to-top)
+	var fill := ColorRect.new()
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fill.color = FAB_FILL_COLOR
+	var fill_h := FAB_ICON_SIZE.y * ratio
+	fill.position = Vector2(0.0, FAB_ICON_SIZE.y - fill_h)
+	fill.size = Vector2(FAB_ICON_SIZE.x, fill_h)
+	slot.add_child(fill)
+
+	# Chassis abbreviation (centered)
+	var lbl := Label.new()
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.text = chassis_label.left(3).to_upper()
+	lbl.add_theme_color_override("font_color", LABEL_COLOR if is_active else DIM_COLOR)
+	lbl.add_theme_font_size_override("font_size", 10)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	slot.add_child(lbl)
+
+	return {root = slot, fill = fill, label = lbl}
+
+
+## Rebuild the entire fabrication icon strip from current queue state.
+func _rebuild_fab_strip() -> void:
+	if _fab_hbox == null:
+		return
+	for child in _fab_hbox.get_children():
+		child.queue_free()
+	_fab_slots.clear()
+
+	if _build_queue == null:
+		_fab_strip.visible = false
+		return
+
+	var queue := _build_queue.get_queue()
+	if queue.is_empty():
+		_fab_strip.visible = false
+		return
+
+	_fab_strip.visible = true
+
+	for i in queue.size():
+		var entry: Dictionary = queue[i]
+		var bp: MechBlueprint = entry.blueprint
+		var is_active := (i == 0)
+		var chassis_name := String(bp.chassis.chassis_name) if bp.chassis != null else String(bp.blueprint_name)
+		var ratio := 0.0
+		if is_active and entry.build_time > 0.0:
+			ratio = clampf(entry.progress / entry.build_time, 0.0, 1.0)
+
+		var slot_data := _make_fab_slot(chassis_name, is_active, ratio)
+		_fab_hbox.add_child(slot_data.root)
+		_fab_slots.append(slot_data)
 
 
 # ── Carrier Status Panel — Construction ──────────────────────────────────
@@ -609,6 +739,13 @@ func _bind_carrier(carrier: Carrier) -> void:
 		hangar.mech_stored.connect(_on_hangar_changed)
 		hangar.mech_removed.connect(_on_hangar_changed)
 
+	_build_queue = carrier.get_node_or_null("BuildQueue") as BuildQueue
+	if _build_queue != null:
+		_build_queue.build_started.connect(_on_build_started)
+		_build_queue.build_progress.connect(_on_build_progress)
+		_build_queue.build_completed.connect(_on_build_completed)
+		_build_queue.build_cancelled.connect(_on_build_cancelled)
+
 	_refresh_all()
 
 
@@ -621,6 +758,7 @@ func _refresh_all() -> void:
 	_refresh_hangar()
 	_refresh_modules()
 	_refresh_position()
+	_rebuild_fab_strip()
 
 
 func _refresh_hull() -> void:
@@ -702,6 +840,31 @@ func _on_auto_move_started(_path: Array[Vector2i]) -> void:
 func _on_auto_move_ended() -> void:
 	if _automove_indicator != null:
 		_automove_indicator.visible = false
+
+
+# ── Fabrication Strip — Signal Handlers ──────────────────────────────────
+
+func _on_build_started(_blueprint: MechBlueprint) -> void:
+	_rebuild_fab_strip()
+
+
+func _on_build_completed(_blueprint: MechBlueprint) -> void:
+	_rebuild_fab_strip()
+
+
+func _on_build_cancelled(_blueprint: MechBlueprint) -> void:
+	_rebuild_fab_strip()
+
+
+func _on_build_progress(_blueprint: MechBlueprint, progress: float, total: float) -> void:
+	if _fab_slots.is_empty():
+		return
+	var ratio := clampf(progress / total, 0.0, 1.0) if total > 0.0 else 0.0
+	var slot: Dictionary = _fab_slots[0]
+	var fill: ColorRect = slot.fill
+	var fill_h := FAB_ICON_SIZE.y * ratio
+	fill.position.y = FAB_ICON_SIZE.y - fill_h
+	fill.size.y = fill_h
 
 
 func _on_harvesting_started(resource_type: StringName) -> void:
