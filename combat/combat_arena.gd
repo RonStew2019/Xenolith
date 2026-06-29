@@ -14,13 +14,16 @@ class_name CombatArena
 ## Emitted after all arena geometry has been generated and is ready.
 signal arena_ready()
 
+## Emitted when the cinematic preview finishes, just before [signal arena_ready].
+signal preview_finished()
+
 ## Emitted when combat ends (stubbed — for future engagement resolution).
 signal arena_exited()
 
 # -- Constants — Arena Layout ----------------------------------------------
 
 ## Arena ground-plane dimensions (X and Z).
-const ARENA_SIZE: float = 80.0
+const ARENA_SIZE: float = 240.0
 
 ## Half-size for placement math.
 const ARENA_HALF: float = ARENA_SIZE / 2.0
@@ -29,7 +32,7 @@ const ARENA_HALF: float = ARENA_SIZE / 2.0
 const GROUND_THICKNESS: float = 1.0
 
 ## How far from the arena edge the carrier / enemy are placed (Z axis).
-const SPAWN_OFFSET_Z: float = 30.0
+const SPAWN_OFFSET_Z: float = 90.0
 
 ## Carrier visual size in the arena (bigger than overworld).
 const CARRIER_BOX_SIZE := Vector3(4.0, 3.0, 4.0)
@@ -41,10 +44,19 @@ const ENEMY_SCALE: float = 3.0
 const SPAWN_POINT_COUNT: int = 4
 
 ## Spawn points spread (X) around the carrier.
-const SPAWN_SPREAD_X: float = 6.0
+const SPAWN_SPREAD_X: float = 18.0
 
 ## Spawn points Z offset from carrier (toward arena center).
-const SPAWN_FORWARD_Z: float = 8.0
+const SPAWN_FORWARD_Z: float = 24.0
+
+## Minimum distance from a carrier center when placing spawn-zone obstacles.
+const CARRIER_CLEARANCE: float = 8.0
+
+## Minimum distance from a spawn point when placing spawn-zone obstacles.
+const SPAWN_POINT_CLEARANCE: float = 4.0
+
+## Max random placement attempts per spawn-zone obstacle before skipping.
+const SPAWN_ZONE_ATTEMPTS: int = 20
 
 # -- Terrain Palettes ------------------------------------------------------
 
@@ -115,6 +127,15 @@ var _threat: ThreatEntity = null
 ## Reference to the player's carrier.
 var _carrier: Carrier = null
 
+## Randomised world-space position of the player carrier in the arena.
+var _player_carrier_pos: Vector3 = Vector3.ZERO
+
+## Randomised world-space position of the enemy carrier/hive in the arena.
+var _enemy_carrier_pos: Vector3 = Vector3.ZERO
+
+## Reference to the combat camera (needed for cinematic preview).
+var _camera: Camera3D = null
+
 ## Combat-pipeline-ready representation of the player's carrier in the arena.
 var player_carrier_target: CombatTarget = null
 
@@ -172,11 +193,11 @@ func _build_arena() -> void:
 	_build_enemy_representation()
 	_build_spawn_points()
 	_build_obstacles()
+	_build_spawn_zone_obstacles()
 	_build_camera()
-	print("[CombatArena] Arena built — terrain: %s, %d spawn points" % [
+	print("[CombatArena] Arena built — terrain: %s, %d spawn points (preview starting)" % [
 		HexCell.TerrainType.keys()[_terrain_type], _spawn_points.size()
 	])
-	arena_ready.emit()
 
 
 # ==========================================================================
@@ -341,8 +362,11 @@ func _build_carrier_representation() -> void:
 			)
 			reactor.apply_effect(defense_effect)
 
-	# Place at one end of the arena (positive Z).
-	body.position = Vector3(0.0, 0.0, SPAWN_OFFSET_Z)
+	# Place at one end of the arena (positive Z) with randomised X.
+	_player_carrier_pos = Vector3(
+		randf_range(-ARENA_HALF * 0.5, ARENA_HALF * 0.5), 0.0, SPAWN_OFFSET_Z
+	)
+	body.position = _player_carrier_pos
 	add_child(body)
 	player_carrier_target = body
 
@@ -426,8 +450,11 @@ func _build_enemy_representation() -> void:
 		body.setup_reactor(500.0, 400.0, ENEMY_CARRIER_ARMOR)
 		_build_enemy_carrier_visual(body)
 
-	# Place at the opposite end of the arena (negative Z).
-	body.position = Vector3(0.0, 0.0, -SPAWN_OFFSET_Z)
+	# Place at the opposite end of the arena (negative Z) with randomised X.
+	_enemy_carrier_pos = Vector3(
+		randf_range(-ARENA_HALF * 0.5, ARENA_HALF * 0.5), 0.0, -SPAWN_OFFSET_Z
+	)
+	body.position = _enemy_carrier_pos
 	add_child(body)
 	enemy_target = body
 
@@ -487,10 +514,10 @@ func _build_spawn_points() -> void:
 	for i: int in range(SPAWN_POINT_COUNT):
 		var marker := Marker3D.new()
 		marker.name = "SpawnPoint%d" % i
-		# Spread evenly along X, slightly forward of the carrier.
+		# Spread evenly along X, slightly forward of the carrier (relative).
 		var t: float = float(i) / float(SPAWN_POINT_COUNT - 1) if SPAWN_POINT_COUNT > 1 else 0.5
-		var x: float = lerpf(-SPAWN_SPREAD_X, SPAWN_SPREAD_X, t)
-		var z: float = SPAWN_OFFSET_Z - SPAWN_FORWARD_Z
+		var x: float = _player_carrier_pos.x + lerpf(-SPAWN_SPREAD_X, SPAWN_SPREAD_X, t)
+		var z: float = _player_carrier_pos.z - SPAWN_FORWARD_Z
 		marker.position = Vector3(x, 0.0, z)
 		add_child(marker)
 		_spawn_points.append(marker.position)
@@ -500,15 +527,73 @@ func _build_spawn_points() -> void:
 #  CAMERA
 # ==========================================================================
 
+## Gameplay camera position (scaled with arena).
+const _GAMEPLAY_CAM_POS := Vector3(0.0, 105.0, 135.0)
+## Gameplay camera rotation.
+const _GAMEPLAY_CAM_ROT := Vector3(-40.0, 0.0, 0.0)
+
 func _build_camera() -> void:
-	var cam := Camera3D.new()
-	cam.name = "CombatCamera"
-	# Elevated perspective looking toward arena center.
-	cam.position = Vector3(0.0, 35.0, 45.0)
-	cam.rotation_degrees = Vector3(-40.0, 0.0, 0.0)
-	cam.fov = 60.0
-	cam.current = true
-	add_child(cam)
+	_camera = Camera3D.new()
+	_camera.name = "CombatCamera"
+	_camera.fov = 60.0
+	_camera.current = true
+	# Start at the preview origin (enemy side, looking inward).
+	# The actual tween begins in _ready() once the node is in the tree.
+	_camera.position = Vector3(
+		_enemy_carrier_pos.x, 60.0, _enemy_carrier_pos.z - 50.0
+	)
+	_camera.rotation_degrees = Vector3(-20.0, 0.0, 0.0)
+	add_child(_camera)
+
+
+func _ready() -> void:
+	_start_preview()
+
+
+## Cinematic camera sweep: enemy side → centre → player side → gameplay.
+##
+## Total duration ≈ 5 s.  Emits [signal preview_finished] and
+## [signal arena_ready] when done.
+func _start_preview() -> void:
+	var tween := create_tween()
+	tween.set_ease(Tween.EASE_IN_OUT)
+	tween.set_trans(Tween.TRANS_CUBIC)
+
+	# Phase 1 (0 – 2 s): Sweep from enemy side to arena centre.
+	tween.tween_property(
+		_camera, "position",
+		Vector3(0.0, 90.0, 0.0), 2.0
+	)
+	tween.parallel().tween_property(
+		_camera, "rotation_degrees",
+		Vector3(-50.0, 0.0, 0.0), 2.0
+	)
+
+	# Phase 2 (2 – 4 s): Continue to the player carrier side.
+	tween.tween_property(
+		_camera, "position",
+		Vector3(_player_carrier_pos.x, 55.0, _player_carrier_pos.z + 40.0), 2.0
+	)
+	tween.parallel().tween_property(
+		_camera, "rotation_degrees",
+		Vector3(-30.0, 0.0, 0.0), 2.0
+	)
+
+	# Phase 3 (4 – 5 s): Settle into the gameplay camera position.
+	tween.tween_property(
+		_camera, "position", _GAMEPLAY_CAM_POS, 1.0
+	)
+	tween.parallel().tween_property(
+		_camera, "rotation_degrees", _GAMEPLAY_CAM_ROT, 1.0
+	)
+
+	tween.tween_callback(_on_preview_finished)
+
+
+func _on_preview_finished() -> void:
+	print("[CombatArena] Preview finished — handing control to player")
+	preview_finished.emit()
+	arena_ready.emit()
 
 
 # ==========================================================================
@@ -610,6 +695,129 @@ func _build_resource_obstacles(count: int, color: Color) -> void:
 
 
 # ==========================================================================
+#  SPAWN-ZONE OBSTACLES
+# ==========================================================================
+
+## Generate terrain-appropriate cover obstacles in both carrier spawn zones.
+##
+## Count per zone is 50-75 % of the mid-zone obstacle count, providing cover
+## near the carriers without cluttering the main battlefield.
+func _build_spawn_zone_obstacles() -> void:
+	var count_range: Vector2i = OBSTACLE_COUNTS.get(_terrain_type, Vector2i(6, 8))
+	var base_count: int = randi_range(count_range.x, count_range.y)
+	var zone_count: int = ceili(base_count * randf_range(0.5, 0.75))
+	var color: Color = OBSTACLE_COLORS.get(_terrain_type, Color(0.5, 0.5, 0.5))
+
+	_build_zone_terrain_obstacles(zone_count, color, _player_carrier_pos, "PZone")
+	_build_zone_terrain_obstacles(zone_count, color, _enemy_carrier_pos, "EZone")
+	print("[CombatArena] Spawn-zone obstacles: %d per zone" % zone_count)
+
+
+## Place [param count] terrain-appropriate obstacles around [param carrier_pos].
+func _build_zone_terrain_obstacles(
+	count: int, color: Color, carrier_pos: Vector3, prefix: String
+) -> void:
+	for i: int in range(count):
+		var pos: Vector3 = _random_spawn_zone_position(carrier_pos)
+		if pos == Vector3.INF:
+			continue  # Could not find valid position after max attempts.
+		match _terrain_type:
+			HexCell.TerrainType.MOUNTAIN:
+				if i % 2 == 0:
+					_add_cylinder_obstacle(
+						"%sPillar%d" % [prefix, i], pos,
+						randf_range(0.8, 1.5), randf_range(2.0, 5.0), color
+					)
+				else:
+					_add_sphere_obstacle(
+						"%sBoulder%d" % [prefix, i], pos,
+						randf_range(1.0, 2.5), color
+					)
+			HexCell.TerrainType.FLORA:
+				if i % 3 != 0:
+					var h: float = randf_range(4.0, 8.0)
+					_add_cylinder_obstacle(
+						"%sTree%d" % [prefix, i], pos,
+						randf_range(0.3, 0.6), h, Color(0.35, 0.25, 0.15)
+					)
+					_add_sphere_obstacle(
+						"%sCanopy%d" % [prefix, i],
+						Vector3(pos.x, h * 0.8, pos.z),
+						randf_range(1.5, 3.0), color, false
+					)
+				else:
+					_add_box_obstacle(
+						"%sUnder%d" % [prefix, i], pos,
+						Vector3(randf_range(3.0, 6.0), randf_range(0.8, 1.6),
+							randf_range(3.0, 6.0)),
+						Color(0.15, 0.4, 0.12)
+					)
+			HexCell.TerrainType.DESERT:
+				_add_sphere_obstacle(
+					"%sRock%d" % [prefix, i], pos,
+					randf_range(2.0, 4.0), color
+				)
+			HexCell.TerrainType.IRRADIATED:
+				if i % 3 == 0:
+					_add_cylinder_obstacle(
+						"%sHazard%d" % [prefix, i], pos,
+						randf_range(0.5, 1.0), randf_range(3.0, 6.0),
+						Color(0.2, 0.9, 0.3), true
+					)
+				else:
+					_add_sphere_obstacle(
+						"%sIrrRock%d" % [prefix, i], pos,
+						randf_range(1.0, 2.5), color
+					)
+			HexCell.TerrainType.RESOURCE:
+				var metal_color := Color(0.55, 0.55, 0.5)
+				if i % 2 == 0:
+					_add_box_obstacle(
+						"%sDerrick%d" % [prefix, i], pos,
+						Vector3(randf_range(1.0, 1.5), randf_range(4.0, 7.0),
+							randf_range(1.0, 1.5)),
+						metal_color
+					)
+				else:
+					_add_cylinder_obstacle(
+						"%sTank%d" % [prefix, i], pos,
+						randf_range(1.5, 2.5), randf_range(2.0, 3.5),
+						metal_color
+					)
+
+
+## Find a random position within a spawn zone around [param carrier_pos],
+## respecting clearance from the carrier body and all spawn points.
+##
+## Returns [constant Vector3.INF] if no valid position is found after
+## [constant SPAWN_ZONE_ATTEMPTS] tries.
+func _random_spawn_zone_position(carrier_pos: Vector3) -> Vector3:
+	for _attempt: int in range(SPAWN_ZONE_ATTEMPTS):
+		var x: float = randf_range(-ARENA_HALF * 0.5, ARENA_HALF * 0.5)
+		# Z band centred on the carrier's depth.
+		var z_min: float = maxf(carrier_pos.z - SPAWN_OFFSET_Z * 0.35, -ARENA_HALF * 0.95)
+		var z_max: float = minf(carrier_pos.z + SPAWN_OFFSET_Z * 0.35, ARENA_HALF * 0.95)
+		var z: float = randf_range(z_min, z_max)
+		var pos := Vector3(x, 0.0, z)
+
+		# Carrier clearance.
+		if pos.distance_to(Vector3(carrier_pos.x, 0.0, carrier_pos.z)) < CARRIER_CLEARANCE:
+			continue
+
+		# Spawn-point clearance.
+		var blocked: bool = false
+		for sp: Vector3 in _spawn_points:
+			if pos.distance_to(sp) < SPAWN_POINT_CLEARANCE:
+				blocked = true
+				break
+		if blocked:
+			continue
+
+		return pos
+	return Vector3.INF
+
+
+# ==========================================================================
 #  OBSTACLE PRIMITIVES
 # ==========================================================================
 
@@ -708,7 +916,7 @@ func _add_box_obstacle(
 ## Generate a random obstacle position in the middle zone of the arena.
 ##
 ## Avoids the carrier spawn zone (positive Z) and enemy zone (negative Z),
-## keeping obstacles in the -20..+20 Z band and spread across X.
+## keeping obstacles within ±SPAWN_OFFSET_Z*0.6 Z and spread across X.
 func _random_obstacle_position() -> Vector3:
 	var x: float = randf_range(-ARENA_HALF * 0.8, ARENA_HALF * 0.8)
 	var z: float = randf_range(-SPAWN_OFFSET_Z * 0.6, SPAWN_OFFSET_Z * 0.6)
