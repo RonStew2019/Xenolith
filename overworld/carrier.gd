@@ -115,6 +115,12 @@ var _hangar: Hangar = null
 ## Reference to the carrier's child [BuildQueue] node.
 var _build_queue: BuildQueue = null
 
+## Visual ring placed on the destination hex during auto-move.
+var _destination_indicator: MeshInstance3D = null
+
+## Elapsed time accumulator for destination indicator pulse.
+var _dest_pulse_time: float = 0.0
+
 # -- Constants -------------------------------------------------------------
 
 ## Carrier body colour — teal / cyan so it pops against terrain.
@@ -125,6 +131,21 @@ const CARRIER_Y_OFFSET: float = 0.3
 
 ## Duration of the movement tween in seconds.
 const MOVE_TWEEN_DURATION: float = 0.3
+
+## Color for the auto-move destination ring indicator.
+const DEST_INDICATOR_COLOR: Color = Color(0.3, 0.85, 1.0)
+
+## Y position of the destination ring — just above the ground to avoid z-fighting.
+const DEST_INDICATOR_Y: float = 0.02
+
+## Pulse speed (radians per second) for the destination indicator.
+const DEST_PULSE_SPEED: float = 3.0
+
+## Minimum alpha during the pulse cycle.
+const DEST_PULSE_ALPHA_MIN: float = 0.3
+
+## Maximum alpha during the pulse cycle.
+const DEST_PULSE_ALPHA_MAX: float = 0.8
 
 # -- Lifecycle -------------------------------------------------------------
 
@@ -146,6 +167,15 @@ func _process(delta: float) -> void:
 	if _move_cooldown > 0.0:
 		_move_cooldown -= delta
 
+	# Pulse the destination indicator if it exists.
+	if _destination_indicator != null:
+		_dest_pulse_time += delta
+		var t: float = (sin(_dest_pulse_time * DEST_PULSE_SPEED) + 1.0) * 0.5
+		var alpha: float = lerpf(DEST_PULSE_ALPHA_MIN, DEST_PULSE_ALPHA_MAX, t)
+		var mat: StandardMaterial3D = _destination_indicator.material_override
+		if mat != null:
+			mat.albedo_color.a = alpha
+
 	# Auto-move: advance to next queued hex when cooldown expires
 	if _auto_moving and not is_moving and _move_cooldown <= 0.0 and not _move_queue.is_empty():
 		var next_hex: Vector2i = _move_queue[0]
@@ -158,6 +188,7 @@ func _process(delta: float) -> void:
 			move_to_hex(next_hex.x, next_hex.y)
 			if _move_queue.is_empty():
 				_auto_moving = false
+				_remove_destination_indicator()
 				auto_move_ended.emit()
 
 	if not _is_harvesting or _harvest_cell == null:
@@ -294,6 +325,8 @@ func start_auto_move(path: Array[Vector2i]) -> void:
 		return
 	_move_queue = path.duplicate()
 	_auto_moving = true
+	# Show a glowing ring on the final destination hex.
+	_create_destination_indicator(path[path.size() - 1])
 	auto_move_started.emit(path)
 	# Immediately start the first move if ready
 	if not is_moving and _move_cooldown <= 0.0:
@@ -301,6 +334,7 @@ func start_auto_move(path: Array[Vector2i]) -> void:
 		move_to_hex(next_hex.x, next_hex.y)
 		if _move_queue.is_empty():
 			_auto_moving = false
+			_remove_destination_indicator()
 			auto_move_ended.emit()
 
 
@@ -310,6 +344,7 @@ func cancel_auto_move() -> void:
 		return
 	_move_queue.clear()
 	_auto_moving = false
+	_remove_destination_indicator()
 	auto_move_ended.emit()
 	print("[Carrier] Auto-move cancelled")
 
@@ -615,6 +650,58 @@ func _install_default_modules() -> void:
 	default_hangar.description = "Standard mech storage bay."
 	default_hangar.mech_capacity = 4
 	install_module(default_hangar)
+
+
+# -- Destination Indicator (private) --------------------------------------
+
+## Create a glowing ring on the target hex to show the auto-move destination.
+##
+## The ring is parented to the overworld scene root (carrier's parent) so it
+## stays fixed in world space while the carrier moves toward it.
+func _create_destination_indicator(target_hex: Vector2i) -> void:
+	_remove_destination_indicator()  # Clean up any stale indicator.
+
+	var mesh_instance := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 1.4
+	torus.outer_radius = 1.8
+	torus.rings = 32
+	torus.ring_segments = 32
+	mesh_instance.mesh = torus
+
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(DEST_INDICATOR_COLOR, DEST_PULSE_ALPHA_MAX)
+	mat.emission_enabled = true
+	mat.emission = DEST_INDICATOR_COLOR
+	mat.emission_energy_multiplier = 1.5
+	mat.no_depth_test = true
+	mat.render_priority = 1
+	mesh_instance.material_override = mat
+
+	# Position at the destination hex, just above the ground plane.
+	# TorusMesh lies flat in the XZ plane by default — no rotation needed.
+	var world_pos := hex_grid.axial_to_world(target_hex.x, target_hex.y)
+	mesh_instance.position = Vector3(world_pos.x, DEST_INDICATOR_Y, world_pos.z)
+
+	# Parent to the overworld root so the ring stays in place.
+	if get_parent() != null:
+		get_parent().add_child(mesh_instance)
+	else:
+		add_child(mesh_instance)
+
+	_destination_indicator = mesh_instance
+	_dest_pulse_time = 0.0
+	print("[Carrier] Destination indicator placed at hex %s" % str(target_hex))
+
+
+## Remove and free the destination indicator if it exists.
+func _remove_destination_indicator() -> void:
+	if _destination_indicator != null:
+		_destination_indicator.queue_free()
+		_destination_indicator = null
+		_dest_pulse_time = 0.0
 
 
 # -- Visual Construction (private) ----------------------------------------
